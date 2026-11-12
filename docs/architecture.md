@@ -54,8 +54,8 @@ graph TB
 
     Client -->|HTTP/HTTPS| Kong
     Kong -->|CoreDNS TCP 8000| Django
-    Django -->|Article read cache TCP 6379| Cache
-    Django -->|psycopg3 TCP 5432| CNPG
+    Django -->|Article GET lookup / populate| Cache
+    Django -->|Cache miss and writes TCP 5432| CNPG
     Django -->|Event Stream TCP 9092| Kafka
     CNPG -.->|Continuous WAL Archiving Port 9000| RustFS
 
@@ -108,9 +108,9 @@ graph TB
   - Exposes Kubernetes liveness (`/healthz/`), readiness (`/readyz/`), and Prometheus telemetry (`/metrics/`).
 
 ### 2.5 API Cache: Valkey
-* **Purpose:** Shared Redis-protocol cache for Django replicas, bounded by `allkeys-lru` and a 256MiB maximum.
-* **Cached responses:** Article list and detail GET endpoints use a 60-second default TTL. Successful article creates, updates, deletes, and publishes invalidate cached responses.
-* **Isolation:** NetworkPolicy permits cache traffic only from Django pods. Cache data is ephemeral and can be rebuilt from PostgreSQL; user API responses are deliberately not cached.
+* **Purpose:** Shared Redis-protocol cache for Django replicas, bounded by `allkeys-lru` and a 256MiB maximum. The single cache replica is ephemeral and is not a highly available data store.
+* **Cached responses:** Article list and detail GET endpoints use a 60-second default TTL. Cache hits avoid PostgreSQL reads; misses are loaded from PostgreSQL. Successful article creates, updates, deletes, and publishes invalidate the cache.
+* **Failure behavior:** If Valkey is unavailable, Django logs the cache error and falls back to PostgreSQL. Cache data can be discarded and rebuilt; user API responses are deliberately not cached.
 
 ### 2.6 Edge Routing Layer: Kong API Gateway
 * **Ingress Management:** Ingress controller directing inbound external traffic matching `api.enterprise.local` to `django-service` on port 80.

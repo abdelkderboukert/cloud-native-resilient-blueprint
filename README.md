@@ -46,9 +46,12 @@ flowchart TD
     subgraph AppTier["⚡ Application Microservice Tier (app-tier)"]
         Django1["Django API Pod 1<br/>(Port 8000)"]
         Django2["Django API Pod 2<br/>(Port 8000)"]
+        Cache["Shared Valkey Cache<br/>(Port 6379, 256MiB, ephemeral)"]
         HPA["Horizontal Pod Autoscaler<br/>(Min: 2, Max: 10)"]
         Kong -->|Internal CoreDNS TCP:80| Django1
         Kong -->|Internal CoreDNS TCP:80| Django2
+        Django1 <-->|Article GET cache| Cache
+        Django2 <-->|Article GET cache| Cache
         HPA -. Autoscale .-> Django1
         HPA -. Autoscale .-> Django2
     end
@@ -65,8 +68,8 @@ flowchart TD
         CNPG_RO2["CNPG Replica RO 2"]
         RustFS["RustFS S3 Object Storage<br/>(Port 9000)<br/>Destination: s3://postgres-backups/"]
 
-        Django1 -->|ACID Transactions via psycopg3| CNPG_RW
-        Django2 -->|ACID Transactions via psycopg3| CNPG_RW
+        Django1 -->|Cache miss and writes| CNPG_RW
+        Django2 -->|Cache miss and writes| CNPG_RW
 
         CNPG_RW -. Streaming Replication .-> CNPG_RO1
         CNPG_RW -. Streaming Replication .-> CNPG_RO2
@@ -82,22 +85,31 @@ flowchart TD
 
     classDef edge fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff;
     classDef app fill:#042f2e,stroke:#2dd4bf,stroke-width:2px,color:#fff;
+    classDef cache fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#fff;
     classDef data fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#fff;
     classDef msg fill:#701a75,stroke:#f472b6,stroke-width:2px,color:#fff;
     classDef storage fill:#431407,stroke:#fb923c,stroke-width:2px,color:#fff;
 
     class User,Kong edge;
     class Django1,Django2,HPA app;
+    class Cache cache;
     class CNPG_RW,CNPG_RO1,CNPG_RO2,RustFS data;
     class Kafka msg;
     class Longhorn storage;
 ```
 
+Article list and detail `GET` requests use the shared Valkey cache for 60
+seconds by default. A cache miss reads from PostgreSQL; successful article
+mutations invalidate cached data. User responses are not cached. If Valkey is
+unavailable, the API falls back to PostgreSQL. Cache contents are disposable
+and are not backed up.
+
 ---
 
 ## 🔄 End-to-End Request & Event Lifecycle
 
-This sequence diagram illustrates what happens when a client sends an API request (e.g., publishing a new enterprise article):
+This sequence diagram shows both article read paths (cache hit and cache miss)
+and the write path for publishing a new article:
 
 ```mermaid
 sequenceDiagram
@@ -105,15 +117,36 @@ sequenceDiagram
     actor Client as External Client
     participant Kong as Kong API Gateway
     participant Django as Django REST API
+    participant Cache as Valkey Cache
     participant PG as PostgreSQL 16 (CNPG)
     participant Kafka as Kafka Broker (KRaft)
     participant S3 as RustFS S3 Storage
+
+    alt Article list/detail GET - cache hit
+        Client->>Kong: GET /api/v1/articles/
+        Kong->>Django: Proxy request with Correlation-ID
+        Django->>Cache: Lookup response by request URL
+        Cache-->>Django: Cached response (TTL 60s)
+        Django-->>Kong: 200 OK (cached JSON)
+        Kong-->>Client: 200 OK
+    else Article list/detail GET - cache miss
+        Client->>Kong: GET /api/v1/articles/
+        Kong->>Django: Proxy request with Correlation-ID
+        Django->>Cache: Lookup response by request URL
+        Cache-->>Django: Cache miss
+        Django->>PG: SELECT article data
+        PG-->>Django: Article rows
+        Django->>Cache: Store response (TTL 60s)
+        Django-->>Kong: 200 OK (JSON)
+        Kong-->>Client: 200 OK
+    end
 
     Client->>Kong: POST /api/v1/articles/ (Payload)
     Note over Kong: 1. Enforces Rate-Limit (120 req/min)<br/>2. Generates & Injects X-Request-ID
     Kong->>Django: Proxy request with Correlation-ID
     Django->>PG: BEGIN Transaction (INSERT article)
     PG-->>Django: COMMIT (UUID generated)
+    Django->>Cache: Invalidate cached article responses
     Django->>Kafka: Async Publish 'article.created' (CloudEvents Envelope)
     Note over Kafka: Partitions to 'article.lifecycle.events'<br/>with key=article.id
     Kafka-->>Django: ACK (acks=1)
@@ -173,6 +206,7 @@ Every tier is locked down using Kubernetes `NetworkPolicy` objects that deny all
 | **Client / Internet** | **Kong Ingress**  | `HTTP/HTTPS (80/443)`   | Layer 7   | Inbound traffic, TLS termination, DDoS defense | Edge Firewall & TLS Ingress                                           |
 | **Kong Ingress**      | **Django API**    | `TCP (Port 80 → 8000)`  | Layer 4/7 | CoreDNS upstream proxying                      | `app-tier-network-policy` restricts ingress strictly to Kong          |
 | **Django API**        | **CNPG Postgres** | `TCP (Port 5432)`       | Layer 4   | Relational ACID queries via `psycopg3`         | `postgres-network-policy` allows port 5432 **only** from `django-api` |
+| **Django API**        | **Valkey Cache**  | `TCP (Port 6379)`       | Layer 4   | Shared article read cache (60s TTL); cache misses fall through to PostgreSQL | `api-cache-network-policy` allows access only from Django pods |
 | **Django API**        | **Kafka Broker**  | `TCP (Port 9092)`       | Layer 4   | Non-blocking CloudEvents streaming             | `kafka-network-policy` allows port 9092 **only** from `django-api`    |
 | **CNPG Primary**      | **RustFS S3**     | `HTTP REST (Port 9000)` | Layer 7   | Continuous WAL archiving & base backups        | `rustfs-network-policy` allows port 9000 **only** from `data-tier`    |
 
@@ -273,6 +307,9 @@ When asked why this platform was designed this way, here are the key technical d
 │ RustFS / S3 WAL Offloading      │ Local disk volume archiving      │ S3-compatible, memory-safe off-cluster storage ensures  │
 │                                 │                                  │ PostgreSQL can execute Point-In-Time-Recovery (PITR)   │
 │                                 │                                  │ even if all PostgreSQL worker nodes are wiped out.     │
+├─────────────────────────────────┼──────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Valkey API Cache                │ Querying PostgreSQL on every read │ Shares article GET responses across Django replicas;  │
+│                                 │ or per-process local memory       │ short TTL and write invalidation keep reads fresh.    │
 ├─────────────────────────────────┼──────────────────────────────────┼────────────────────────────────────────────────────────┤
 │ Asynchronous CloudEvents Buffer │ Synchronous HTTP Webhooks        │ Decouples write transactions from downstream consumers;│
 │                                 │                                  │ prevents API latency spikes if downstream message      │
@@ -405,7 +442,7 @@ cloud-native-resilient-blueprint/
 │               ├── 00-infrastructure/    # Storage, RBAC, quotas, limits, Velero schedule
 │               ├── 01-data-tier/         # RustFS, CNPG Cluster, S3 Backups
 │               ├── 02-messaging-tier/    # Apache Kafka KRaft StatefulSet & Topics
-│               ├── 03-app-tier/          # Django API Deployment, Service, HPA, PDB
+│               ├── 03-app-tier/          # Django API, Valkey cache, Service, HPA, PDB
 │               ├── 04-edge-routing/      # KongIngress, Ingress, Rate-limiting, Tracing
 │               └── NOTES.txt             # Post-install cluster instructions
 ├── docs/
