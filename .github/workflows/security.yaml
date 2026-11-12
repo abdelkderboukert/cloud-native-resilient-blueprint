@@ -1,0 +1,109 @@
+name: Scheduled Security Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-scan:
+    name: Scan Repository for Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  codeql:
+    name: CodeQL Python Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
+
+      - name: Analyze Python code
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:python
+
+  dependency-audit:
+    name: Audit Python Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: src/django-enterprise-api/requirements.txt
+
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+
+      - name: Check dependencies for known vulnerabilities
+        run: |
+          pip-audit \
+            --requirement src/django-enterprise-api/requirements.txt \
+            --format json \
+            --output pip-audit-report.json
+
+      - name: Upload dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  helm-config-scan:
+    name: Scan Helm Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Scan chart with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: deploy/helm/enterprise-platform
+          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-helm-report.json
+          exit-code: "0"
+
+      - name: Upload Helm scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-helm-report
+          path: trivy-helm-report.json
+          if-no-files-found: warn
+          retention-days: 14

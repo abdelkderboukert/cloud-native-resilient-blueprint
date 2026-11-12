@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -140,10 +141,8 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
-  # Test the API, build its image, scan it, and publish on main.
-  django-build-test-scan-push:
-    name: Build, Test, Scan & Push Django Image
-    needs: [secret-and-pattern-scan, dependency-audit, helm-trivy-scan]
+  django-test:
+    name: Django Unit and Integration Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -154,21 +153,35 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
+          cache: pip
+          cache-dependency-path: src/django-enterprise-api/requirements.txt
 
       - name: Install Application Requirements
         run: |
           python -m pip install --upgrade pip
           pip install -r src/django-enterprise-api/requirements.txt
 
-      - name: Execute Django Unit & Integration Test Suite
+      - name: Run Django Tests
         env:
           USE_SQLITE: "True"
           KAFKA_TEST_MODE: "True"
           DJANGO_TESTING: "1"
-        run: |
-          cd src/django-enterprise-api
-          python manage.py test
+        run: python manage.py test
+        working-directory: src/django-enterprise-api
+
+  # Build, scan, and publish the image after the checks pass.
+  django-build-scan-push:
+    name: Build, Scan & Push Django Image
+    needs:
+      - secret-and-pattern-scan
+      - dependency-audit
+      - helm-trivy-scan
+      - django-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

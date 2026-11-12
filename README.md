@@ -241,46 +241,79 @@ flowchart LR
 
 ## CI/CD and Security Checks
 
-Every code change must pass four automated security and quality gates before being deployed:
+The CI workflow runs independent security, dependency, Helm, and Django test
+jobs before it builds and publishes the API image:
 
 ```mermaid
 flowchart TD
-    Commit["Git Push / Pull Request"] --> Gate1["Gate 1: Secrets & Pattern Audit"]
-    Commit --> Gate2["Gate 2: Dependency Vulnerability Audit"]
-    Commit --> Gate3["Gate 3: Helm Trivy Misconfiguration Scan"]
+    Commit["Git Push / Pull Request"] --> Gate1["Secrets & Pattern Audit"]
+    Commit --> Gate2["Dependency Audit"]
+    Commit --> Gate3["Helm Validation"]
+    Commit --> DjangoTest["Django Unit Tests"]
 
-    subgraph Gate1_Details["Gate 1 Checks"]
+    subgraph Gate1_Details["Source and Configuration Checks"]
         Gitleaks["Gitleaks Secret Scan"]
         TrivyFS["Trivy Filesystem Secret Scan"]
         Yamllint["Yamllint Syntax Check"]
         Flake8["Flake8 Python Antipattern Check"]
     end
 
-    subgraph Gate2_Details["Gate 2 Checks"]
-        PipAudit["pip-audit (CVE Database Scan)"]
-        TrivyVuln["Trivy Vulnerability Scan"]
+    subgraph Gate2_Details["Dependency Checks"]
+        PipAudit["pip-audit (blocking)"]
+        TrivyVuln["Trivy Dependency Scan (report-only)"]
     end
 
-    subgraph Gate3_Details["Gate 3 Checks"]
+    subgraph Gate3_Details["Helm Checks"]
         HelmLint["helm lint & helm template"]
-        TrivyConfig["Trivy config (Kubernetes Security Posture)"]
+        TrivyConfig["Trivy config (report-only)"]
     end
 
-    Gate1 --> Gate1_Details --> Pass1["Clean Secrets & Syntax"]
-    Gate2 --> Gate2_Details --> Pass2["Zero High/Critical CVEs"]
-    Gate3 --> Gate3_Details --> Pass3["Secure Helm Manifests"]
+    Gate1 --> Gate1_Details
+    Gate2 --> Gate2_Details
+    Gate3 --> Gate3_Details
 
-    Pass1 & Pass2 & Pass3 --> Gate4["Gate 4: Build, Test, Scan & Push"]
-
-    subgraph Gate4_Details["Gate 4 Pipeline"]
-        DjangoTest["1. Django Unit Tests (manage.py test)"]
-        DockerBuild["2. Multi-Stage Docker Build (Non-root UID 10001)"]
-        TrivyImage["3. Trivy Container Image Scan (Vuln & Secrets)"]
-        PushGHCR["4. Authenticated Push to GHCR (ghcr.io)"]
+    subgraph SecurityWorkflow["Additional Security Workflow: Push, Pull Request, Weekly, or Manual"]
+        CodeQL["CodeQL Python Analysis"]
+        SecurityReports["pip-audit and Trivy Helm Reports"]
     end
 
-    Gate4 --> Gate4_Details --> Release["Ready for Argo CD sync"]
+    Commit --> SecurityWorkflow
+    SecurityWorkflow --> CodeQL
+    SecurityWorkflow --> SecurityReports
+
+    Gate1 & Gate2 & Gate3 & DjangoTest --> Build["Build and scan Django image"]
+    Build --> TrivyImage["Trivy Image Scan (report-only)"]
+    TrivyImage --> PushCondition{"Push to main?"}
+    PushCondition -->|Yes| PushGHCR["Publish image to GHCR"]
+    PushCondition -->|No| SkipPush["Do not publish image"]
 ```
+
+The CI workflow runs its secret/pattern, dependency, Helm, and Django test jobs
+separately. Image build and publication wait for those jobs to pass. The image
+is published only for pushes to `main`. The separate
+[`security.yaml`](.github/workflows/security.yaml) workflow adds CodeQL Python
+analysis and runs on pushes, pull requests, a weekly schedule, or manual
+dispatch. It uploads dependency and Helm scan reports as workflow artifacts.
+Trivy dependency, Helm, and image scans currently report findings without
+failing the workflow; Gitleaks, pip-audit findings, and the required CI jobs
+can block the image release.
+
+### Workflow reference
+
+- [`ci.yaml`](.github/workflows/ci.yaml) runs on pushes to `main` and `develop`,
+  pull requests targeting `main`, or manual dispatch. Its secret/configuration,
+  dependency, Helm, and Django test jobs run before the image job. A successful
+  run can publish the Django image to GHCR only for a push to `main`.
+- [`security.yaml`](.github/workflows/security.yaml) runs on pushes to
+  `main`/`develop`, pull requests targeting `main`, every Sunday at 02:00 UTC,
+  or manual dispatch. It scans repository history with Gitleaks, analyzes
+  Python with CodeQL, audits Python dependencies, and scans Helm configuration.
+  pip-audit and Trivy JSON reports are uploaded as artifacts for 14 days;
+  CodeQL findings are sent to GitHub code scanning.
+- To run either workflow on demand, open **Actions**, select the workflow, and
+  choose **Run workflow**. Review the job result, uploaded artifacts, and the
+  repository's **Security** tab. Scheduled scans are for ongoing visibility;
+  the CI workflow is the release gate for the GHCR image.
 
 ---
 
