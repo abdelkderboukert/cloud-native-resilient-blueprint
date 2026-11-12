@@ -10,7 +10,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Forbidden secret patterns (excluding known template/test strings)
+# Patterns used to find secrets in project files.
 SECRET_PATTERNS = [
     (r"(?i)(?:api_key|apikey|secret_key|private_key|aws_secret|token)\s*[:=]\s*['\"]([A-Za-z0-9/\+=]{20,})['\"]", "High-entropy API token/key"),
     (r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", "Raw Private Key"),
@@ -52,16 +52,13 @@ def scan_secrets_and_patterns():
 
         rel_path = file_path.relative_to(PROJECT_ROOT)
 
-        # Check secret patterns
         for pattern, label in SECRET_PATTERNS:
             for match in re.finditer(pattern, content):
                 matched_str = match.group(0)
-                # Check if it's one of the documented placeholder values
                 if any(allowed in matched_str for allowed in ALLOWED_LITERALS):
                     continue
                 issues.append(f"{rel_path}: Potential {label} detected: '{matched_str[:40]}...'")
 
-        # Check forbidden anti-patterns in production manifests
         if "deploy/helm" in str(rel_path):
             if "privileged: true" in content.lower():
                 issues.append(f"{rel_path}: Security violation: privileged container enabled!")
@@ -78,7 +75,7 @@ def scan_helm_misconfigurations():
     print("\n[*] Scanning Helm Chart for Security Misconfigurations (Trivy-parity check)...")
     helm_templates = PROJECT_ROOT / "deploy" / "helm" / "enterprise-platform" / "templates"
     
-    # Verify non-root user in Django deployment
+    # Check that the API deployment has a non-root security context and resource limits.
     django_deploy = helm_templates / "03-app-tier" / "django-deployment.yaml"
     if django_deploy.exists():
         content = django_deploy.read_text(encoding="utf-8")
@@ -89,7 +86,7 @@ def scan_helm_misconfigurations():
         else:
             print("  [OK] Django deployment enforces non-root security context and resource bounds.")
 
-    # Verify NetworkPolicies are in place
+    # Check that the chart defines network policies.
     netpol = helm_templates / "00-infrastructure" / "network-policies.yaml"
     if netpol.exists():
         content = netpol.read_text(encoding="utf-8")
@@ -111,7 +108,6 @@ def scan_dependencies():
         print(f"  [*] Evaluated {len(lines)} dependencies in requirements.txt:")
         for line in lines:
             print(f"    - {line}")
-            # Ensure pinned or bounded versions
             if "==" not in line and ">=" not in line and "~=" not in line:
                 issues.append(f"Dependency '{line}' is unpinned. Pin dependencies for production reproducibility.")
     else:

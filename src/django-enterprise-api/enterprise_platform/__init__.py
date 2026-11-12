@@ -1,1 +1,0 @@
-# Enterprise Platform Application Package

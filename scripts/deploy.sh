@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Enterprise Event-Driven Micro-Platform (EEMP) Helm Deployment
-# ==============================================================================
+# Install or update the platform Helm release.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

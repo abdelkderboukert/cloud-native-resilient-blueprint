@@ -27,12 +27,10 @@ class UserAPITests(TestCase):
         data = response.json()
         self.assertEqual(data["username"], "johndoe")
 
-        # Verify profile creation
         user = User.objects.get(username="johndoe")
         self.assertEqual(user.profile.tier, "enterprise")
         self.assertEqual(user.profile.department, "Platform Engineering")
 
-        # Verify Kafka event
         events = kafka_producer.get_published_events()
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"]["type"], "user.registered")

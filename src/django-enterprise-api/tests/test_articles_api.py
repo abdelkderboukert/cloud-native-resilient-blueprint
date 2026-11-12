@@ -72,7 +72,6 @@ class ArticleAPITests(TestCase):
         self.assertEqual(data["status"], "draft")
         self.assertEqual(response.headers.get("X-Request-ID"), "test-req-001")
 
-        # Verify Kafka event
         events = kafka_producer.get_published_events()
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"]["type"], "article.created")
@@ -93,7 +92,6 @@ class ArticleAPITests(TestCase):
         self.assertEqual(data["status"], "published")
         self.assertIsNotNone(data["published_at"])
 
-        # Verify published event
         events = kafka_producer.get_published_events()
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"]["type"], "article.published")

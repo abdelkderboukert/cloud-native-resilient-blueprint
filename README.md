@@ -1,6 +1,6 @@
-# 🚀 Enterprise Event-Driven Micro-Platform (EEMP)
+# Enterprise Event-Driven Micro-Platform (EEMP)
 
-### Resilient Cloud-Native Architecture Blueprint, Helm 3, ArgoCD GitOps & DevSecOps Suite
+### Cloud-native architecture with Helm, Argo CD, and CI security checks
 
 [![Platform CI](https://github.com/abdelkderboukert/cloud-native-resilient-blueprint/actions/workflows/ci.yaml/badge.svg)](.github/workflows/ci.yaml)
 [![Helm](https://img.shields.io/badge/Helm-3.x-0F1689.svg?logo=helm&logoColor=white)](https://helm.sh)
@@ -14,10 +14,10 @@
 
 ---
 
-## 📌 Executive Summary (The 30-Second Elevator Pitch)
+## Overview
 
 > **What is this project?**
-> The **Enterprise Event-Driven Micro-Platform (EEMP)** is a complete, battle-tested blueprint for running mission-critical stateful microservices on Kubernetes.
+> The **Enterprise Event-Driven Micro-Platform (EEMP)** is a reference project for running stateful services on Kubernetes.
 >
 > It provides an automated, zero-trust control plane integrating:
 >
@@ -31,19 +31,19 @@
 
 ---
 
-## 🗺️ High-Level System Architecture
+## System Architecture
 
 The platform separates compute, storage, messaging, and routing into isolated failure domains governed by Kubernetes NetworkPolicies:
 
 ```mermaid
 flowchart TD
-    subgraph EdgeTier["🌐 Edge Routing Tier (ingress-tier / app-tier)"]
+    subgraph EdgeTier["Edge Routing Tier (ingress-tier / app-tier)"]
         User(["Client / External Edge"])
         Kong["Kong API Gateway Ingress<br/>(Port 80 / 443)<br/>Plugins: RateLimit, Tracing, Prometheus"]
         User -->|HTTP / HTTPS| Kong
     end
 
-    subgraph AppTier["⚡ Application Microservice Tier (app-tier)"]
+    subgraph AppTier["Application Tier (app-tier)"]
         Django1["Django API Pod 1<br/>(Port 8000)"]
         Django2["Django API Pod 2<br/>(Port 8000)"]
         Cache["Shared Valkey Cache<br/>(Port 6379, 256MiB, ephemeral)"]
@@ -56,13 +56,13 @@ flowchart TD
         HPA -. Autoscale .-> Django2
     end
 
-    subgraph MessagingTier["📡 Streaming Messaging Tier (messaging-tier)"]
+    subgraph MessagingTier["Messaging Tier (messaging-tier)"]
         Kafka["Apache Kafka Broker<br/>(KRaft Mode: Port 9092)<br/>Topics: user.events, article.events"]
         Django1 -->|Asynchronous CloudEvents TCP:9092| Kafka
         Django2 -->|Asynchronous CloudEvents TCP:9092| Kafka
     end
 
-    subgraph DataTier["💾 Stateful Database & Object Tier (data-tier)"]
+    subgraph DataTier["Database and Object Storage Tier (data-tier)"]
         CNPG_RW["CNPG Primary RW (Port 5432)"]
         CNPG_RO1["CNPG Replica RO 1"]
         CNPG_RO2["CNPG Replica RO 2"]
@@ -76,7 +76,7 @@ flowchart TD
         CNPG_RW -->|Continuous Barman WAL Archiving| RustFS
     end
 
-    subgraph StorageTier["🧱 Resilient Block Storage Layer (CSI Failure Domains)"]
+    subgraph StorageTier["Block Storage Layer (CSI Failure Domains)"]
         Longhorn["Longhorn CSI (enterprise-longhorn-sc)<br/>Cross-Node Replication n=2, 48h stale timeout, ext4, Retain"]
         CNPG_RW --- Longhorn
         Kafka --- Longhorn
@@ -106,7 +106,7 @@ and are not backed up.
 
 ---
 
-## 🔄 End-to-End Request & Event Lifecycle
+## Request and Event Flow
 
 This sequence diagram shows both article read paths (cache hit and cache miss)
 and the write path for publishing a new article:
@@ -161,7 +161,7 @@ sequenceDiagram
 
 ---
 
-## 🛡️ Failure Domains & Physical Storage Replication (Longhorn)
+## Failure Domains and Longhorn Storage
 
 How does the platform survive sudden hardware node loss without data corruption?
 
@@ -185,7 +185,7 @@ flowchart LR
     LH_Engine -->|Local NVMe/SSD| ReplicaA
     LH_Engine -->|Sync TCP Network I/O| ReplicaB
 
-    Node1 -.->|"💥 Node 1 Crashes"| Failover["Automated Failover"]
+    Node1 -.->|"Node 1 fails"| Failover["Automated failover"]
     Failover -->|"CNPG promotes replica on Node 2<br/>Longhorn rebuilds Replica on Node 3"| Node2
 ```
 
@@ -197,7 +197,7 @@ flowchart LR
 
 ---
 
-## 🔒 Zero-Trust Network & Data Flow Matrix
+## Network Policies and Data Flow
 
 Every tier is locked down using Kubernetes `NetworkPolicy` objects that deny all unauthorized cross-namespace lateral movement:
 
@@ -212,7 +212,7 @@ Every tier is locked down using Kubernetes `NetworkPolicy` objects that deny all
 
 ---
 
-## ⚙️ Declarative GitOps Architecture (ArgoCD & Helm)
+## GitOps with Argo CD and Helm
 
 The platform follows a strict **GitOps** operating model. Nothing is applied manually with `kubectl` in production; the Git repository is the single source of truth.
 
@@ -239,7 +239,7 @@ flowchart LR
 
 ---
 
-## 🛡️ DevSecOps CI/CD Pipeline & Shift-Left Security
+## CI/CD and Security Checks
 
 Every code change must pass four automated security and quality gates before being deployed:
 
@@ -279,14 +279,14 @@ flowchart TD
         PushGHCR["4. Authenticated Push to GHCR (ghcr.io)"]
     end
 
-    Gate4 --> Gate4_Details --> Release["🚀 Ready for ArgoCD Sync"]
+    Gate4 --> Gate4_Details --> Release["Ready for Argo CD sync"]
 ```
 
 ---
 
-## 💡 Top Architectural Trade-offs (Interview Cheatsheet)
+## Architecture Decisions
 
-When asked why this platform was designed this way, here are the key technical decisions:
+These are the main trade-offs behind the platform:
 
 ```
 ┌─────────────────────────────────┬──────────────────────────────────┬────────────────────────────────────────────────────────┐
@@ -319,27 +319,27 @@ When asked why this platform was designed this way, here are the key technical d
 
 ---
 
-## ⚡ Quickstart Guide (Run & Verify in 3 Minutes)
+## Quickstart
 
 ### Option A: Local Full-Stack Emulation (Docker Compose)
 
 Experience the complete 5-tier architecture locally on your laptop without needing a Kubernetes cluster:
 
 ```bash
-# 1. Start all tiers in the background (RustFS, Postgres 16, Kafka KRaft, Valkey cache, Django, Kong)
+# Start the local services
 docker compose up -d --build
 
-# 2. Check running services
+# Check service status
 docker compose ps
 
-# 3. Verify health & readiness probes
+# Check API health and readiness
 curl -i http://localhost:8000/healthz/
 curl -i http://localhost:8000/readyz/
 
-# 4. Execute the automated end-to-end smoke test
+# Run the end-to-end smoke test
 python scripts/smoke-test.py --base-url http://localhost:8000
 
-# 5. Stop and tear down
+# Stop the services and remove their volumes
 docker compose down -v
 ```
 
@@ -355,13 +355,13 @@ cache error and continues serving requests from the database.
 Deploy the platform to any Kubernetes cluster (Minikube, Kind, EKS, GKE, AKS, or bare metal):
 
 ```bash
-# 1. Validate and render the Helm chart
+# Validate the Helm chart
 make validate
 
-# 2. Deploy with the default or an environment-specific values file
+# Deploy with the selected values file
 bash scripts/deploy.sh deploy/helm/enterprise-platform/values-prod.yaml
 
-# 3. Verify pod status across namespaces
+# Check the workloads
 kubectl get pods -n data-tier
 kubectl get pods -n messaging-tier
 kubectl get pods -n app-tier
@@ -374,13 +374,13 @@ kubectl get pods -n app-tier
 Synchronize directly from Git:
 
 ```bash
-# 1. Register the AppProject
+# Register the Argo CD project
 kubectl apply -f deploy/helm/enterprise-platform/gitops/appproject.yaml
 
-# 2. Deploy the ArgoCD Application
+# Apply the Argo CD application
 kubectl apply -f deploy/helm/enterprise-platform/gitops/application.yaml
 
-# 3. Watch ArgoCD synchronize all tiers
+# Check sync status
 kubectl -n argocd get application enterprise-platform-prod
 ```
 
@@ -399,25 +399,25 @@ Managed Kubernetes encryption must be configured through the provider.
 
 ---
 
-## 🧪 Automated Testing & Security Validation Commands
+## Tests and Security Checks
 
 Run the full local audit suite to test code quality, secrets, dependencies, and Kubernetes manifests:
 
 ```bash
-# 1. Local DevSecOps Audit (Secrets, Antipatterns, Dependencies)
+# Check for secrets, unsafe patterns, and dependency issues
 python scripts/security-scan.py
 
-# 2. Helm Chart Structural, Lint, and Render Validation
+# Validate the Helm chart
 make validate
 
-# 3. Django Application Unit & Integration Tests
+# Run the Django tests
 cd src/django-enterprise-api
 python manage.py test
 ```
 
 ---
 
-## 📂 Repository Directory Layout
+## Repository Layout
 
 ```
 cloud-native-resilient-blueprint/
@@ -473,7 +473,7 @@ cloud-native-resilient-blueprint/
 
 ---
 
-## 👨‍💻 Author & Architecture Team
+## Maintainers
 
 Architected by the **Platform Reliability & Cloud-Native Engineering Team**.  
 Licensed under the **Apache 2.0 License**.

@@ -1,6 +1,4 @@
-"""
-Kubernetes Health and Readiness Probes View Handlers
-"""
+"""Health, readiness, and metrics endpoints."""
 
 import logging
 from django.db import connection
@@ -12,10 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class HealthCheckView(View):
-    """
-    Kubernetes Liveness Probe (/healthz).
-    Returns 200 OK if the Django application process is alive.
-    """
+    """Report whether the application process is running."""
 
     def get(self, request, *args, **kwargs):
         return JsonResponse({
@@ -26,12 +21,7 @@ class HealthCheckView(View):
 
 
 class ReadinessCheckView(View):
-    """
-    Kubernetes Readiness Probe (/readyz).
-    Verifies that the application can service client traffic by checking:
-    1. PostgreSQL database connectivity (CNPG primary)
-    2. Kafka broker availability (Event Streaming)
-    """
+    """Check that PostgreSQL and Kafka are available before serving traffic."""
 
     def get(self, request, *args, **kwargs):
         checks = {
@@ -39,7 +29,6 @@ class ReadinessCheckView(View):
             "kafka": False,
         }
 
-        # 1. Database check
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1;")
@@ -50,14 +39,12 @@ class ReadinessCheckView(View):
             logger.error("Readiness check: Database check failed: %s", exc)
             checks["database"] = False
 
-        # 2. Kafka check
         try:
             checks["kafka"] = kafka_producer.check_connection()
         except Exception as exc:
             logger.warning("Readiness check: Kafka check failed: %s", exc)
             checks["kafka"] = False
 
-        # Determine overall readiness
         all_ready = checks["database"] and checks["kafka"]
         http_status = 200 if all_ready else 503
 
@@ -69,10 +56,7 @@ class ReadinessCheckView(View):
 
 
 class MetricsView(View):
-    """
-    Prometheus Telemetry Endpoint (/metrics).
-    Outputs operational metrics in Prometheus exposition format.
-    """
+    """Expose application and dependency metrics for Prometheus."""
 
     def get(self, request, *args, **kwargs):
         events_published = len(kafka_producer.get_published_events())

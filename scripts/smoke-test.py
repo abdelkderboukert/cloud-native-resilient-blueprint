@@ -50,20 +50,17 @@ def run_smoke_test(base_url, host_header=None):
     if host_header:
         default_headers["Host"] = host_header
 
-    # Test 1: Liveness Probe (/healthz/)
     print("\n[Step 1] Checking Liveness Probe (/healthz/)...")
     status, body, _ = make_request(f"{base_url}/healthz/", headers=default_headers)
     print(f"  -> HTTP {status}: {body}")
     assert status == 200, f"Expected 200 from /healthz/, got {status}"
     assert body.get("status") == "healthy", "Expected healthy status"
 
-    # Test 2: Readiness Probe (/readyz/)
     print("\n[Step 2] Checking Readiness Probe (/readyz/)...")
     status, body, _ = make_request(f"{base_url}/readyz/", headers=default_headers)
     print(f"  -> HTTP {status}: {body}")
     assert status in (200, 503), f"Unexpected status {status} from /readyz/"
 
-    # Test 3: Create User (Triggers user.registered event)
     print("\n[Step 3] Creating Enterprise User (triggers user.registered event)...")
     test_user = f"smoke_user_{uuid.uuid4().hex[:6]}"
     user_payload = {
@@ -82,7 +79,6 @@ def run_smoke_test(base_url, host_header=None):
     print(f"  -> HTTP {status}: User created with ID {body.get('id')}")
     assert status == 201, f"Expected 201 Created for user registration, got {status}"
 
-    # Test 4: Create Article (Triggers article.created event)
     print("\n[Step 4] Creating Article (triggers article.created event)...")
     article_payload = {
         "title": f"Resilience Blueprint Verification {uuid.uuid4().hex[:4]}",
@@ -101,7 +97,6 @@ def run_smoke_test(base_url, host_header=None):
     assert status == 201, f"Expected 201 Created for article, got {status}"
     article_id = body.get("id")
 
-    # Test 5: Publish Article (Triggers article.published event)
     print(f"\n[Step 5] Publishing Article {article_id} (triggers article.published event)...")
     status, body, _ = make_request(
         f"{base_url}/api/v1/articles/{article_id}/publish/",
@@ -112,7 +107,6 @@ def run_smoke_test(base_url, host_header=None):
     assert status == 200, f"Expected 200 for article publish, got {status}"
     assert body.get("status") == "published", "Article status did not transition to published"
 
-    # Test 6: Verify Telemetry Metrics (/metrics/)
     print("\n[Step 6] Inspecting Prometheus Metrics (/metrics/)...")
     status, body, _ = make_request(f"{base_url}/metrics/", headers=default_headers)
     print(f"  -> HTTP {status} (Content length: {len(body)} bytes)")

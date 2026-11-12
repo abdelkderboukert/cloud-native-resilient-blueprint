@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Enterprise Event-Driven Micro-Platform (EEMP) Helm Teardown
-# ==============================================================================
+# Remove the platform Helm release.
 set -euo pipefail
 
 RELEASE_NAME="enterprise-platform"

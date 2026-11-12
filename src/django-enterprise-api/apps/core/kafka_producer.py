@@ -1,7 +1,4 @@
-"""
-Enterprise Resilient Kafka Event Producer
-Manages asynchronous publishing of user and article lifecycle events.
-"""
+"""Publish lifecycle events to Kafka."""
 
 import json
 import logging
@@ -18,10 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class EnterpriseKafkaProducer:
-    """
-    Thread-safe, resilient Kafka event publisher with automatic schema wrapping,
-    retry backoff, and local buffer fallback for resilient operations.
-    """
+    """Publish lifecycle events and retain a local copy for fallback and tests."""
 
     _instance = None
     _lock = threading.Lock()
@@ -97,7 +91,6 @@ class EnterpriseKafkaProducer:
             "data": payload,
         }
 
-        # Record into fallback / audit buffer
         with self._lock:
             self._published_events.append({
                 "topic": topic,
@@ -109,7 +102,6 @@ class EnterpriseKafkaProducer:
         if producer is not None:
             try:
                 future = producer.send(topic, key=key, value=envelope)
-                # Flush asynchronously in production
                 logger.info(
                     "Published event %s [%s] to topic %s with key %s",
                     event_id, event_type, topic, key
@@ -148,7 +140,7 @@ class EnterpriseKafkaProducer:
         if producer is not None:
             return True
 
-        # Fallback raw socket check to avoid blocking
+        # Check the broker socket if the producer could not connect.
         try:
             servers = getattr(settings, "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092").split(",")
             first_host_port = servers[0].strip().split(":")
@@ -170,5 +162,4 @@ class EnterpriseKafkaProducer:
             self._published_events.clear()
 
 
-# Global singleton instance
 kafka_producer = EnterpriseKafkaProducer()

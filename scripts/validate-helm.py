@@ -15,7 +15,6 @@ def validate_chart():
     errors = []
     print(f"[*] Validating Helm Chart at: {CHART_DIR}")
 
-    # 1. Check Chart.yaml
     chart_yaml = CHART_DIR / "Chart.yaml"
     if not chart_yaml.exists():
         return ["Chart.yaml is missing!"]
@@ -26,7 +25,6 @@ def validate_chart():
             errors.append(f"Chart.yaml missing expected field: '{field}'")
     print("  [OK] Chart.yaml metadata verified.")
 
-    # 2. Check values.yaml
     values_yaml = CHART_DIR / "values.yaml"
     if not values_yaml.exists():
         return ["values.yaml is missing!"]
@@ -37,7 +35,6 @@ def validate_chart():
             errors.append(f"values.yaml missing configuration block: '{block}'")
     print("  [OK] values.yaml structure verified.")
 
-    # 3. Check Templates
     templates_dir = CHART_DIR / "templates"
     if not templates_dir.exists():
         return ["templates directory is missing!"]
@@ -48,7 +45,7 @@ def validate_chart():
     for t_file in sorted(template_files):
         t_content = t_file.read_text(encoding="utf-8")
 
-        # Balance check for if/end and range/end
+        # Helm control blocks must have matching end statements.
         ifs = len(re.findall(r"\{\{-?\s*if\s+", t_content))
         withs = len(re.findall(r"\{\{-?\s*with\s+", t_content))
         ranges = len(re.findall(r"\{\{-?\s*range\s+", t_content))

@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security configuration
@@ -35,10 +34,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Third-party apps
+    # Third-party packages
     "rest_framework",
     "corsheaders",
-    # Platform tier domain apps
+    # Project apps
     "apps.core.apps.CoreConfig",
     "apps.articles.apps.ArticlesConfig",
     "apps.users.apps.UsersConfig",
@@ -77,7 +76,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "enterprise_platform.wsgi.application"
 ASGI_APPLICATION = "enterprise_platform.asgi.application"
 
-# Helper function to parse database URLs safely
+# Parse DATABASE_URL when dj-database-url is not installed.
 def parse_db_url(url: str):
     if not url or "sqlite" in url or os.getenv("USE_SQLITE", "False").lower() in ("true", "1"):
         return {
@@ -107,7 +106,7 @@ DATABASE_URL = os.getenv(
     "postgres://app_user:secure_password@postgres-cluster-rw.data-tier.svc.cluster.local:5432/enterprise_db"
 )
 
-# In test runners or local development without postgres running, allow fallback
+# Use SQLite for tests and local development.
 if os.getenv("DJANGO_TESTING") == "1" or os.getenv("USE_SQLITE", "False").lower() in ("true", "1"):
     DATABASES = {
         "default": {
@@ -163,7 +162,7 @@ CACHES = {
     }
 }
 
-# Django REST Framework Configuration
+# REST framework settings
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -180,7 +179,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Kafka Configuration
+# Kafka settings
 KAFKA_BOOTSTRAP_SERVERS = os.getenv(
     "KAFKA_BOOTSTRAP_SERVERS",
     "kafka-broker-0.kafka-headless.messaging-tier.svc.cluster.local:9092"
@@ -190,7 +189,7 @@ KAFKA_ARTICLE_EVENTS_TOPIC = os.getenv("KAFKA_ARTICLE_EVENTS_TOPIC", "article.li
 KAFKA_CLIENT_ID = os.getenv("KAFKA_CLIENT_ID", "django-enterprise-api")
 KAFKA_ENABLED = os.getenv("KAFKA_ENABLED", "True").lower() in ("true", "1", "yes")
 
-# CORS
+# Cross-origin requests
 CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False").lower() in ("true", "1", "yes")
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -199,7 +198,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://api.enterprise.local",
 ]
 
-# Logging Configuration
+# Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 try:

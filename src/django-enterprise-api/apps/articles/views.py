@@ -1,6 +1,4 @@
-"""
-Article API ViewSets with Asynchronous Event Streaming
-"""
+"""Article API endpoints and event publishing."""
 
 from datetime import datetime, timezone
 from django.conf import settings
@@ -24,13 +22,7 @@ def _cache_article_read(view_method):
 
 
 class ArticleViewSet(viewsets.ModelViewSet):
-    """
-    CRUD API for Articles with asynchronous Kafka lifecycle event publishing:
-    - article.created
-    - article.updated
-    - article.deleted
-    - article.published
-    """
+    """Provide article CRUD operations and publish lifecycle events."""
 
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
@@ -46,7 +38,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         article = serializer.save()
         cache.clear()
-        # Asynchronously broadcast article.created event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.created",
             article_data=ArticleSerializer(article).data,
@@ -55,7 +46,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         article = serializer.save()
         cache.clear()
-        # Asynchronously broadcast article.updated event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.updated",
             article_data=ArticleSerializer(article).data,
@@ -66,7 +56,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
         article_data = {"id": article_id, "title": instance.title, "status": "deleted"}
         instance.delete()
         cache.clear()
-        # Asynchronously broadcast article.deleted event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.deleted",
             article_data=article_data,
@@ -82,7 +71,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
         cache.clear()
 
         serialized = ArticleSerializer(article).data
-        # Asynchronously broadcast article.published event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.published",
             article_data=serialized,
