@@ -1,0 +1,28 @@
+==============================================================================
+Enterprise Event-Driven Micro-Platform (EEMP) Helm Deployment
+==============================================================================
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Environment: {{ .Values.global.environment }}
+
+1. Tiers Provisioned:
+  - Infrastructure: StorageClass '{{ .Values.infrastructure.storageClass.name }}', Zero-Trust NetworkPolicies
+  - Data Tier: RustFS ({{ .Values.dataTier.rustfs.storage.size }}), CloudNativePG Cluster '{{ .Values.dataTier.cnpg.clusterName }}' ({{ .Values.dataTier.cnpg.instances }} instances)
+  - Messaging Tier: Apache Kafka KRaft Broker ({{ .Values.messagingTier.kafka.storage.size }})
+  - App Tier: Django REST Framework API ({{ .Values.appTier.django.replicas }} replicas)
+  - Edge Routing Tier: Kong Ingress routing host '{{ .Values.edgeRouting.kong.host }}'
+
+2. Verifying Deployment:
+  kubectl -n {{ .Values.namespaces.appTier }} get pods -l app.kubernetes.io/name={{ .Values.appTier.django.name }}
+  kubectl -n {{ .Values.namespaces.dataTier }} get cluster {{ .Values.dataTier.cnpg.clusterName }}
+  kubectl -n {{ .Values.namespaces.messagingTier }} get statefulset {{ .Values.messagingTier.kafka.name }}
+
+3. Accessing the Platform:
+  Port-forward the Django service:
+    kubectl -n {{ .Values.namespaces.appTier }} port-forward svc/{{ .Values.appTier.django.service.name }} 8000:{{ .Values.appTier.django.service.port }}
+  Verify health probes:
+    curl -i http://localhost:8000/healthz/
+    curl -i http://localhost:8000/readyz/
+
+==============================================================================

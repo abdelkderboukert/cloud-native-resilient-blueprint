@@ -1,0 +1,200 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-tier-network-policy
+  namespace: app-tier
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: django-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Kong Ingress controllers (in ingress-tier or kong namespace)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          tier: edge-routing
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-tier
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kong
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow TCP connection to PostgreSQL in data-tier
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: data-tier
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow TCP connection to Kafka in messaging-tier
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: messaging-tier
+    ports:
+    - protocol: TCP
+      port: 9092
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-network-policy
+  namespace: data-tier
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: postgres-cluster
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Django API from app-tier on port 5432
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: app-tier
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: django-api
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow intra-cluster Postgres replication
+  - from:
+    - podSelector:
+        matchLabels:
+          cnpg.io/cluster: postgres-cluster
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 8000 # CNPG instance manager metrics/health
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow intra-cluster replication
+  - to:
+    - podSelector:
+        matchLabels:
+          cnpg.io/cluster: postgres-cluster
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow S3 backup egress to RustFS on port 9000
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rustfs
+    ports:
+    - protocol: TCP
+      port: 9000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rustfs-network-policy
+  namespace: data-tier
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rustfs
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow S3 traffic from PostgreSQL cluster pods and CNPG operator
+  - from:
+    - podSelector:
+        matchLabels:
+          cnpg.io/cluster: postgres-cluster
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: cloudnative-pg
+    ports:
+    - protocol: TCP
+      port: 9000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-network-policy
+  namespace: messaging-tier
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Django API clients from app-tier
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: app-tier
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: django-api
+    ports:
+    - protocol: TCP
+      port: 9092
+  # Allow intra-broker communication & KRaft controller quorum
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: kafka
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow intra-broker and controller sync
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: kafka
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093

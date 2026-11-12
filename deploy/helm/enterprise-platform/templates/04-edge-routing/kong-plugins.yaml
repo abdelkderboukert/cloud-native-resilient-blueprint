@@ -1,0 +1,51 @@
+{{- if .Values.edgeRouting.kong.enabled }}
+{{- if .Values.edgeRouting.kong.rateLimiting.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: enterprise-rate-limiting
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: enterprise-rate-limiting
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+plugin: rate-limiting
+config:
+  minute: {{ .Values.edgeRouting.kong.rateLimiting.minute }}
+  policy: local
+  fault_tolerant: true
+  hide_client_headers: false
+---
+{{- end }}
+{{- if .Values.edgeRouting.kong.correlationId.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: enterprise-correlation-id
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: enterprise-correlation-id
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+plugin: correlation-id
+config:
+  header_name: {{ .Values.edgeRouting.kong.correlationId.headerName | quote }}
+  generator: uuid#counter
+  echo_downstream: true
+---
+{{- end }}
+{{- if .Values.edgeRouting.kong.prometheus.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: enterprise-prometheus
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: enterprise-prometheus
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+plugin: prometheus
+config:
+  per_consumer: false
+  status_code_metrics: true
+  latency_metrics: true
+  bandwidth_metrics: true
+{{- end }}
+{{- end }}

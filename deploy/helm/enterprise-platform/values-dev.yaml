@@ -1,0 +1,23 @@
+# Development environment overrides
+global:
+  environment: "development"
+
+dataTier:
+  cnpg:
+    instances: 1
+    storage:
+      size: "10Gi"
+
+messagingTier:
+  kafka:
+    storage:
+      size: "5Gi"
+
+appTier:
+  django:
+    replicas: 1
+    debug: true
+    hpa:
+      enabled: false
+    pdb:
+      enabled: false

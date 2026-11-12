@@ -1,0 +1,30 @@
+{{- if and .Values.appTier.django.enabled .Values.appTier.django.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.appTier.django.name }}-hpa
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.appTier.django.name }}
+  minReplicas: {{ .Values.appTier.django.hpa.minReplicas }}
+  maxReplicas: {{ .Values.appTier.django.hpa.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.appTier.django.hpa.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.appTier.django.hpa.targetMemoryUtilizationPercentage }}
+{{- end }}

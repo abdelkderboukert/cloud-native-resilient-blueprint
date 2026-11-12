@@ -1,0 +1,23 @@
+apiVersion: v2
+name: enterprise-platform
+description: Production-grade Helm chart for the Enterprise Event-Driven Micro-Platform (EEMP)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - cloud-native
+  - django
+  - kafka
+  - postgresql
+  - cnpg
+  - rustfs
+  - longhorn
+  - kong
+  - argocd
+maintainers:
+  - name: Platform Engineering Team
+    email: platform-eng@enterprise.local
+home: https://github.com/enterprise/cloud-native-resilient-blueprint
+sources:
+  - https://github.com/enterprise/cloud-native-resilient-blueprint

@@ -1,0 +1,17 @@
+{{- if .Values.messagingTier.kafka.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  namespace: {{ .Values.namespaces.messagingTier }}
+  labels:
+    app.kubernetes.io/name: kafka
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: client
+  selector:
+    app.kubernetes.io/name: kafka
+{{- end }}

@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init-topics
+  namespace: messaging-tier
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-init-topics
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: topic-creator
+        image: confluentinc/cp-kafka:7.6.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Waiting for Kafka broker to be ready..."
+          cub kafka-ready -b kafka-broker-0.kafka-headless.messaging-tier.svc.cluster.local:9092 1 60
+          
+          echo "Creating enterprise topics..."
+          kafka-topics --bootstrap-server kafka-broker-0.kafka-headless.messaging-tier.svc.cluster.local:9092 \
+            --create --if-not-exists --topic user.lifecycle.events --partitions 3 --replication-factor 1
+            
+          kafka-topics --bootstrap-server kafka-broker-0.kafka-headless.messaging-tier.svc.cluster.local:9092 \
+            --create --if-not-exists --topic article.lifecycle.events --partitions 3 --replication-factor 1
+
+          echo "Listing Kafka topics:"
+          kafka-topics --bootstrap-server kafka-broker-0.kafka-headless.messaging-tier.svc.cluster.local:9092 --list

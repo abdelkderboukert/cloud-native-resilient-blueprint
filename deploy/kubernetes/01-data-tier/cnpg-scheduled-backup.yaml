@@ -1,0 +1,14 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: postgres-daily-backup
+  namespace: data-tier
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+spec:
+  immediate: true
+  schedule: "0 0 2 * * *" # Daily at 02:00 AM UTC
+  backupOwnerReference: self
+  cluster:
+    name: postgres-cluster

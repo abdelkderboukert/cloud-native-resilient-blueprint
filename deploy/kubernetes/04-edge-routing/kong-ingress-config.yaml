@@ -1,0 +1,17 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name: django-ingress-config
+  namespace: app-tier
+  labels:
+    app.kubernetes.io/name: django-ingress-config
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+route:
+  protocols:
+    - http
+    - https
+  strip_path: false
+proxy:
+  connect_timeout: 10000
+  read_timeout: 30000
+  write_timeout: 30000

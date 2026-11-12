@@ -1,0 +1,19 @@
+{{- if .Values.infrastructure.storageClass.create }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.infrastructure.storageClass.name }}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+provisioner: driver.longhorn.io
+allowVolumeExpansion: {{ .Values.infrastructure.storageClass.allowVolumeExpansion }}
+reclaimPolicy: {{ .Values.infrastructure.storageClass.reclaimPolicy }}
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: {{ .Values.infrastructure.storageClass.numberOfReplicas | quote }}
+  staleReplicaTimeout: {{ .Values.infrastructure.storageClass.staleReplicaTimeout | quote }}
+  fromBackup: ""
+  fsx: {{ .Values.infrastructure.storageClass.fsx | quote }}
+{{- end }}

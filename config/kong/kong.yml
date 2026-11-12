@@ -1,0 +1,28 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: django-service
+    url: http://django-api:8000
+    routes:
+      - name: django-route
+        paths:
+          - /
+        hosts:
+          - api.enterprise.local
+          - localhost
+        strip_path: false
+        protocols:
+          - http
+          - https
+        plugins:
+          - name: correlation-id
+            config:
+              header_name: X-Request-ID
+              generator: uuid#counter
+              echo_downstream: true
+          - name: rate-limiting
+            config:
+              minute: 120
+              policy: local
+              fault_tolerant: true

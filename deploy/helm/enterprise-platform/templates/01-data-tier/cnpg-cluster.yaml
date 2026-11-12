@@ -1,0 +1,40 @@
+{{- if .Values.dataTier.cnpg.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.dataTier.cnpg.clusterName }}
+  namespace: {{ .Values.namespaces.dataTier }}
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.dataTier.cnpg.instances }}
+  imageName: "{{ .Values.dataTier.cnpg.image.repository }}:{{ .Values.dataTier.cnpg.image.tag }}"
+  primaryUpdateStrategy: {{ .Values.dataTier.cnpg.primaryUpdateStrategy }}
+  storage:
+    size: {{ .Values.dataTier.cnpg.storage.size }}
+    storageClass: {{ .Values.global.storageClass }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.dataTier.cnpg.database }}
+      owner: {{ .Values.dataTier.cnpg.owner }}
+      secret:
+        name: {{ .Values.dataTier.cnpg.credentials.secretName }}
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ .Values.dataTier.cnpg.backup.destinationPath }}
+      endpointURL: "http://rustfs-service.{{ .Values.namespaces.dataTier }}.svc.cluster.local:9000"
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Values.dataTier.rustfs.credentials.secretName }}
+          key: access-key
+        secretAccessKey:
+          name: {{ .Values.dataTier.rustfs.credentials.secretName }}
+          key: secret-key
+      wal:
+        compression: {{ .Values.dataTier.cnpg.backup.wal.compression }}
+        maxParallel: {{ .Values.dataTier.cnpg.backup.wal.maxParallel }}
+      data:
+        compression: {{ .Values.dataTier.cnpg.backup.data.compression }}
+    retentionPolicy: {{ .Values.dataTier.cnpg.backup.retentionPolicy | quote }}
+{{- end }}

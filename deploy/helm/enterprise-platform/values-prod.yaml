@@ -1,0 +1,26 @@
+# Production environment overrides
+global:
+  environment: "production"
+
+dataTier:
+  cnpg:
+    instances: 3
+    storage:
+      size: "20Gi"
+
+messagingTier:
+  kafka:
+    storage:
+      size: "15Gi"
+
+appTier:
+  django:
+    replicas: 3
+    debug: false
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 15
+    pdb:
+      enabled: true
+      minAvailable: 2

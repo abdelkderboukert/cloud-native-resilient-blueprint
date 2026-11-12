@@ -1,0 +1,25 @@
+# Gitleaks Configuration for EEMP
+title = "Enterprise Platform Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow mock/example secrets in documentation, test suites, and templates"
+paths = [
+  '''^\.env\.example$''',
+  '''^tests/.*''',
+  '''^src/django-enterprise-api/tests/.*''',
+  '''^deploy/helm/enterprise-platform/values.*\.yaml$''',
+  '''^deploy/kubernetes/.*\.yaml$''',
+  '''^docs/.*\.md$''',
+  '''^README\.md$''',
+]
+regexes = [
+  '''enterprise-super-secret-key-32chars''',
+  '''enterprise-admin-key''',
+  '''secure_password''',
+  '''django-insecure-enterprise-production-key-change-in-vault-immediately''',
+  '''django-insecure-development-key-replace-in-production-vault''',
+  '''4L62EnnTQNmGQQuUhqwawA''',
+]

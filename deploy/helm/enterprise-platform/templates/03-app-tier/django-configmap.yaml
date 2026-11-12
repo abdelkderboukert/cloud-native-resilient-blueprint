@@ -1,0 +1,19 @@
+{{- if .Values.appTier.django.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-config
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+data:
+  DJANGO_SETTINGS_MODULE: "enterprise_platform.settings"
+  DEBUG: {{ .Values.appTier.django.debug | quote }}
+  ALLOWED_HOSTS: {{ .Values.appTier.django.allowedHosts | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker-0.kafka-headless.{{ .Values.namespaces.messagingTier }}.svc.cluster.local:9092"
+  KAFKA_USER_EVENTS_TOPIC: {{ .Values.messagingTier.kafka.topics.userEvents | quote }}
+  KAFKA_ARTICLE_EVENTS_TOPIC: {{ .Values.messagingTier.kafka.topics.articleEvents | quote }}
+  CORS_ALLOW_ALL_ORIGINS: "False"
+  LOG_LEVEL: {{ .Values.appTier.django.logLevel | quote }}
+{{- end }}

@@ -1,0 +1,10 @@
+Django>=5.0,<5.2
+djangorestframework>=3.15.0
+django-cors-headers>=4.3.0
+psycopg[binary]>=3.1.18
+dj-database-url>=2.1.0
+kafka-python-ng>=2.2.2
+gunicorn>=21.2.0
+python-json-logger>=2.0.7
+pytest>=8.0.0
+pytest-django>=4.8.0

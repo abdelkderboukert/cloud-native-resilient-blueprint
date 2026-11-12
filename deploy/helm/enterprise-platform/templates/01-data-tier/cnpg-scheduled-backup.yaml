@@ -1,0 +1,16 @@
+{{- if and .Values.dataTier.cnpg.enabled .Values.dataTier.cnpg.scheduledBackup.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Values.dataTier.cnpg.scheduledBackup.name }}
+  namespace: {{ .Values.namespaces.dataTier }}
+  labels:
+    app.kubernetes.io/name: postgres-cluster
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  immediate: true
+  schedule: {{ .Values.dataTier.cnpg.scheduledBackup.schedule | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: {{ .Values.dataTier.cnpg.clusterName }}
+{{- end }}

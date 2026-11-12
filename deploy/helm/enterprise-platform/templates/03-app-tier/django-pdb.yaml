@@ -1,0 +1,15 @@
+{{- if and .Values.appTier.django.enabled .Values.appTier.django.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.appTier.django.name }}-pdb
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.appTier.django.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+{{- end }}

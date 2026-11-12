@@ -1,0 +1,43 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: enterprise-rate-limiting
+  namespace: app-tier
+  labels:
+    app.kubernetes.io/name: enterprise-rate-limiting
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+plugin: rate-limiting
+config:
+  minute: 120
+  policy: local
+  fault_tolerant: true
+  hide_client_headers: false
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: enterprise-correlation-id
+  namespace: app-tier
+  labels:
+    app.kubernetes.io/name: enterprise-correlation-id
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+plugin: correlation-id
+config:
+  header_name: X-Request-ID
+  generator: uuid#counter
+  echo_downstream: true
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: enterprise-prometheus
+  namespace: app-tier
+  labels:
+    app.kubernetes.io/name: enterprise-prometheus
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+plugin: prometheus
+config:
+  per_consumer: false
+  status_code_metrics: true
+  latency_metrics: true
+  bandwidth_metrics: true

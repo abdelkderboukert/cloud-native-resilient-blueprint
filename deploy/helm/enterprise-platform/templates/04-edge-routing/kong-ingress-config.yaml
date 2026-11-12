@@ -1,0 +1,19 @@
+{{- if .Values.edgeRouting.kong.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name: {{ .Values.edgeRouting.kong.ingressConfigName }}
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.edgeRouting.kong.ingressConfigName }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+route:
+  protocols:
+    - http
+    - https
+  strip_path: false
+proxy:
+  connect_timeout: 10000
+  read_timeout: 30000
+  write_timeout: 30000
+{{- end }}

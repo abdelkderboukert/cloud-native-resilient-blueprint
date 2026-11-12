@@ -1,0 +1,18 @@
+{{- if .Values.dataTier.rustfs.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustfs-headless
+  namespace: {{ .Values.namespaces.dataTier }}
+  labels:
+    app.kubernetes.io/name: rustfs
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: s3-api
+  selector:
+    app.kubernetes.io/name: rustfs
+{{- end }}

@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: enterprise-platform
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+spec:
+  description: ArgoCD Project for the Enterprise Event-Driven Micro-Platform (EEMP)
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: "default"
+      server: "https://kubernetes.default.svc"
+    - namespace: "data-tier"
+      server: "https://kubernetes.default.svc"
+    - namespace: "messaging-tier"
+      server: "https://kubernetes.default.svc"
+    - namespace: "app-tier"
+      server: "https://kubernetes.default.svc"
+    - namespace: "ingress-tier"
+      server: "https://kubernetes.default.svc"
+  clusterResourceWhitelist:
+    - group: "storage.k8s.io"
+      kind: "StorageClass"
+    - group: ""
+      kind: "Namespace"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  orphanedResources:
+    warn: true

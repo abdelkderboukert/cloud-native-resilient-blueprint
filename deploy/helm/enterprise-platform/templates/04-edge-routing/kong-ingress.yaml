@@ -1,0 +1,26 @@
+{{- if .Values.edgeRouting.kong.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.edgeRouting.kong.ingressName }}
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.edgeRouting.kong.ingressName }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.edgeRouting.kong.ingressClass | quote }}
+    konghq.com/override: {{ .Values.edgeRouting.kong.ingressConfigName | quote }}
+    konghq.com/plugins: "enterprise-rate-limiting,enterprise-correlation-id,enterprise-prometheus"
+spec:
+  rules:
+  - host: {{ .Values.edgeRouting.kong.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.appTier.django.service.name }}
+            port:
+              number: {{ .Values.appTier.django.service.port }}
+{{- end }}

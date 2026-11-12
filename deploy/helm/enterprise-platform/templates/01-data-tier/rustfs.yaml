@@ -1,0 +1,70 @@
+{{- if .Values.dataTier.rustfs.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.dataTier.rustfs.name }}
+  namespace: {{ .Values.namespaces.dataTier }}
+  labels:
+    app.kubernetes.io/name: rustfs
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  serviceName: rustfs-headless
+  replicas: {{ .Values.dataTier.rustfs.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rustfs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rustfs
+        {{- include "enterprise-platform.labels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: rustfs
+        image: "{{ .Values.dataTier.rustfs.image.repository }}:{{ .Values.dataTier.rustfs.image.tag }}"
+        imagePullPolicy: {{ .Values.dataTier.rustfs.image.pullPolicy }}
+        ports:
+        - containerPort: 9000
+          name: s3-api
+        env:
+        - name: RUSTFS_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dataTier.rustfs.credentials.secretName }}
+              key: access-key
+        - name: RUSTFS_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dataTier.rustfs.credentials.secretName }}
+              key: secret-key
+        resources:
+          {{- toYaml .Values.dataTier.rustfs.resources | nindent 10 }}
+        volumeMounts:
+        - name: rustfs-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: rustfs-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .Values.global.storageClass | quote }}
+      resources:
+        requests:
+          storage: {{ .Values.dataTier.rustfs.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustfs-service
+  namespace: {{ .Values.namespaces.dataTier }}
+  labels:
+    app.kubernetes.io/name: rustfs
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: s3-api
+  selector:
+    app.kubernetes.io/name: rustfs
+{{- end }}

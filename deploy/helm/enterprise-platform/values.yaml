@@ -1,0 +1,171 @@
+# Default values for enterprise-platform Helm chart.
+# Declare variables to be passed into your templates.
+
+global:
+  storageClass: "enterprise-longhorn-sc"
+  domain: "enterprise.local"
+  environment: "production"
+  commonLabels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+
+# Namespace Configuration
+namespaces:
+  create: true
+  dataTier: "data-tier"
+  messagingTier: "messaging-tier"
+  appTier: "app-tier"
+  ingressTier: "ingress-tier"
+
+# Global Infrastructure & Storage
+infrastructure:
+  storageClass:
+    create: true
+    name: "enterprise-longhorn-sc"
+    numberOfReplicas: "2"
+    staleReplicaTimeout: "2880"
+    reclaimPolicy: "Retain"
+    fsx: "ext4"
+    allowVolumeExpansion: true
+  networkPolicies:
+    enabled: true
+
+# 1. Object Storage & Stateful Database Tier
+dataTier:
+  rustfs:
+    enabled: true
+    name: "rustfs-storage"
+    replicas: 1
+    image:
+      repository: "rustfs/rustfs"
+      tag: "latest"
+      pullPolicy: "IfNotPresent"
+    storage:
+      size: "50Gi"
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    credentials:
+      secretName: "rustfs-secret"
+      accessKey: "enterprise-admin-key"
+      secretKey: "enterprise-super-secret-key-32chars"
+    bucketInit:
+      enabled: true
+      image: "minio/mc:latest"
+      targetBucket: "postgres-backups"
+
+  cnpg:
+    enabled: true
+    clusterName: "postgres-cluster"
+    instances: 3
+    image:
+      repository: "ghcr.io/cloudnativepg/postgresql"
+      tag: "16.2"
+    primaryUpdateStrategy: "unsupervised"
+    storage:
+      size: "20Gi"
+    database: "enterprise_db"
+    owner: "app_user"
+    password: "secure_password"
+    credentials:
+      secretName: "postgres-cluster-app"
+    backup:
+      destinationPath: "s3://postgres-backups/"
+      retentionPolicy: "30 days"
+      wal:
+        compression: "gzip"
+        maxParallel: 2
+      data:
+        compression: "gzip"
+    scheduledBackup:
+      enabled: true
+      name: "postgres-daily-backup"
+      schedule: "0 0 2 * * *"
+
+# 2. Event Streaming Layer (Kafka KRaft Mode)
+messagingTier:
+  kafka:
+    enabled: true
+    name: "kafka-broker"
+    replicas: 1
+    image:
+      repository: "confluentinc/cp-kafka"
+      tag: "7.6.0"
+      pullPolicy: "IfNotPresent"
+    clusterId: "4L62EnnTQNmGQQuUhqwawA"
+    nodeId: "1"
+    storage:
+      size: "15Gi"
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "1536Mi"
+      requests:
+        cpu: "250m"
+        memory: "768Mi"
+    topics:
+      userEvents: "user.lifecycle.events"
+      articleEvents: "article.lifecycle.events"
+      initJob:
+        enabled: true
+
+# 3. Application Layer (Django REST Framework)
+appTier:
+  django:
+    enabled: true
+    name: "django-api"
+    replicas: 2
+    image:
+      repository: "ghcr.io/user/django-enterprise-api"
+      tag: "latest"
+      pullPolicy: "IfNotPresent"
+    secretKey: "django-insecure-enterprise-production-key-change-in-vault-immediately"
+    debug: false
+    allowedHosts: "api.enterprise.local,django-service,django-service.app-tier.svc.cluster.local,localhost,127.0.0.1"
+    logLevel: "INFO"
+    service:
+      name: "django-service"
+      port: 80
+      targetPort: 8000
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 10001
+      runAsGroup: 10001
+      fsGroup: 10001
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 75
+      targetMemoryUtilizationPercentage: 80
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+# 4. Edge Routing Layer (Kong API Gateway)
+edgeRouting:
+  kong:
+    enabled: true
+    ingressClass: "kong"
+    host: "api.enterprise.local"
+    ingressConfigName: "django-ingress-config"
+    ingressName: "django-kong-ingress"
+    rateLimiting:
+      enabled: true
+      minute: 120
+    correlationId:
+      enabled: true
+      headerName: "X-Request-ID"
+    prometheus:
+      enabled: true

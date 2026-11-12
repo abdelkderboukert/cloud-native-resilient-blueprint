@@ -1,0 +1,17 @@
+{{- if .Values.appTier.django.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.appTier.django.service.name }}
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: {{ .Values.appTier.django.service.port }}
+    targetPort: {{ .Values.appTier.django.service.targetPort }}
+    name: http
+  selector:
+    app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+{{- end }}
