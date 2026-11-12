@@ -13,6 +13,9 @@ Environment: {{ .Values.global.environment }}
   - Data Tier: RustFS ({{ .Values.dataTier.rustfs.storage.size }}), CloudNativePG Cluster '{{ .Values.dataTier.cnpg.clusterName }}' ({{ .Values.dataTier.cnpg.instances }} instances)
   - Messaging Tier: Apache Kafka KRaft Broker ({{ .Values.messagingTier.kafka.storage.size }})
   - App Tier: Django REST Framework API ({{ .Values.appTier.django.replicas }} replicas)
+  {{- if .Values.appTier.cache.enabled }}
+  - API Cache: Valkey service '{{ .Values.appTier.cache.name }}:{{ .Values.appTier.cache.port }}' ({{ .Values.appTier.django.cache.ttlSeconds }}s article read TTL)
+  {{- end }}
   - Edge Routing Tier: Kong Ingress routing host '{{ .Values.edgeRouting.kong.host }}'
 
 2. Verifying Deployment:

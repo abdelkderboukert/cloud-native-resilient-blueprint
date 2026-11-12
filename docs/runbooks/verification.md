@@ -15,14 +15,15 @@ make validate
 ### 1.2 Django Application Test Suite
 Run the automated test suite testing health probes, Kafka event producer resilience, Article API CRUD/publish lifecycle, and User registration:
 ```bash
-cd src/django-enterprise-api
-python manage.py test
+make test
 ```
 Expected output:
 ```
-Ran 9 tests in 0.5s
+Ran 10 tests in 0.5s
 OK
 ```
+The article API tests verify that repeated list/detail reads are served from
+cache and successful updates invalidate cached data.
 
 ---
 
