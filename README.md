@@ -1,4 +1,5 @@
 # 🚀 Enterprise Event-Driven Micro-Platform (EEMP)
+
 ### Resilient Cloud-Native Architecture Blueprint, Helm 3, ArgoCD GitOps & DevSecOps Suite
 
 [![Platform CI](https://github.com/enterprise/cloud-native-resilient-blueprint/actions/workflows/ci.yaml/badge.svg)](.github/workflows/ci.yaml)
@@ -17,8 +18,9 @@
 
 > **What is this project?**
 > The **Enterprise Event-Driven Micro-Platform (EEMP)** is a complete, battle-tested blueprint for running mission-critical stateful microservices on Kubernetes.
-> 
+>
 > It provides an automated, zero-trust control plane integrating:
+>
 > 1. **Distributed Block Storage** with cross-node replication (**Longhorn CSI**).
 > 2. **High-Availability PostgreSQL 16** with automated failover and continuous S3 WAL archiving (**CloudNativePG** + **RustFS S3**).
 > 3. **Next-Gen Distributed Streaming** in native ZooKeeper-less mode (**Apache Kafka KRaft**).
@@ -154,7 +156,7 @@ flowchart LR
     Failover -->|"CNPG promotes replica on Node 2<br/>Longhorn rebuilds Replica on Node 3"| Node2
 ```
 
-* **Longhorn CSI StorageClass (`enterprise-longhorn-sc`)**:
+- **Longhorn CSI StorageClass (`enterprise-longhorn-sc`)**:
   - `numberOfReplicas: "2"`: Guarantees synchronous multi-node persistence.
   - `volumeBindingMode: Immediate`: Provisions storage instantly to match scheduling requirements.
   - `reclaimPolicy: Retain`: Prevents catastrophic data deletion if pods or PVCs are unbound.
@@ -166,13 +168,13 @@ flowchart LR
 
 Every tier is locked down using Kubernetes `NetworkPolicy` objects that deny all unauthorized cross-namespace lateral movement:
 
-| Source Layer | Destination Layer | Protocol / Port | OSI Layer | Functional Role | Security Policy Rule |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Client / Internet** | **Kong Ingress** | `HTTP/HTTPS (80/443)` | Layer 7 | Inbound traffic, TLS termination, DDoS defense | Edge Firewall & TLS Ingress |
-| **Kong Ingress** | **Django API** | `TCP (Port 80 → 8000)` | Layer 4/7 | CoreDNS upstream proxying | `app-tier-network-policy` restricts ingress strictly to Kong |
-| **Django API** | **CNPG Postgres** | `TCP (Port 5432)` | Layer 4 | Relational ACID queries via `psycopg3` | `postgres-network-policy` allows port 5432 **only** from `django-api` |
-| **Django API** | **Kafka Broker** | `TCP (Port 9092)` | Layer 4 | Non-blocking CloudEvents streaming | `kafka-network-policy` allows port 9092 **only** from `django-api` |
-| **CNPG Primary** | **RustFS S3** | `HTTP REST (Port 9000)` | Layer 7 | Continuous WAL archiving & base backups | `rustfs-network-policy` allows port 9000 **only** from `data-tier` |
+| Source Layer          | Destination Layer | Protocol / Port         | OSI Layer | Functional Role                                | Security Policy Rule                                                  |
+| :-------------------- | :---------------- | :---------------------- | :-------- | :--------------------------------------------- | :-------------------------------------------------------------------- |
+| **Client / Internet** | **Kong Ingress**  | `HTTP/HTTPS (80/443)`   | Layer 7   | Inbound traffic, TLS termination, DDoS defense | Edge Firewall & TLS Ingress                                           |
+| **Kong Ingress**      | **Django API**    | `TCP (Port 80 → 8000)`  | Layer 4/7 | CoreDNS upstream proxying                      | `app-tier-network-policy` restricts ingress strictly to Kong          |
+| **Django API**        | **CNPG Postgres** | `TCP (Port 5432)`       | Layer 4   | Relational ACID queries via `psycopg3`         | `postgres-network-policy` allows port 5432 **only** from `django-api` |
+| **Django API**        | **Kafka Broker**  | `TCP (Port 9092)`       | Layer 4   | Non-blocking CloudEvents streaming             | `kafka-network-policy` allows port 9092 **only** from `django-api`    |
+| **CNPG Primary**      | **RustFS S3**     | `HTTP REST (Port 9000)` | Layer 7   | Continuous WAL archiving & base backups        | `rustfs-network-policy` allows port 9000 **only** from `data-tier`    |
 
 ---
 
@@ -183,7 +185,7 @@ The platform follows a strict **GitOps** operating model. Nothing is applied man
 ```mermaid
 flowchart LR
     Git["Git Repository<br/>(deploy/helm/enterprise-platform)"] -->|Webhook / Polling| ArgoCD["ArgoCD Controller<br/>(namespace: argocd)"]
-    
+
     subgraph ArgoCD_Engine["ArgoCD Reconciler"]
         AppProj["AppProject: enterprise-platform<br/>Whitelists namespaces: data, messaging, app, ingress"]
         AppProd["Application: enterprise-platform-prod<br/>values.yaml + values-prod.yaml"]
@@ -192,13 +194,14 @@ flowchart LR
     ArgoCD --> ArgoCD_Engine
     ArgoCD_Engine -->|Automated Sync & Prune| K8sCluster["Kubernetes Cluster"]
 
-    K8sCluster -. Drift Detected .->|Self-Heal Reverts Changes| ArgoCD_Engine
+    K8sCluster -. "Drift Detected" .- ArgoCD_Engine
 ```
 
 ### GitOps Features Configured:
-* **`selfHeal: true`**: If an engineer manually alters a pod or service with `kubectl`, ArgoCD immediately detects the configuration drift and reverts the cluster back to the Git state.
-* **`prune: true`**: Removing a manifest or template from Git automatically cleans up the stale Kubernetes object.
-* **`ApplyOutOfSyncOnly: true`**: Highly efficient reconciliation that only updates resources whose declarative spec has changed.
+
+- **`selfHeal: true`**: If an engineer manually alters a pod or service with `kubectl`, ArgoCD immediately detects the configuration drift and reverts the cluster back to the Git state.
+- **`prune: true`**: Removing a manifest or template from Git automatically cleans up the stale Kubernetes object.
+- **`ApplyOutOfSyncOnly: true`**: Highly efficient reconciliation that only updates resources whose declarative spec has changed.
 
 ---
 
@@ -282,6 +285,7 @@ When asked why this platform was designed this way, here are the key technical d
 ## ⚡ Quickstart Guide (Run & Verify in 3 Minutes)
 
 ### Option A: Local Full-Stack Emulation (Docker Compose)
+
 Experience the complete 5-tier architecture locally on your laptop without needing a Kubernetes cluster:
 
 ```bash
@@ -422,5 +426,6 @@ cloud-native-resilient-blueprint/
 ---
 
 ## 👨‍💻 Author & Architecture Team
+
 Architected by the **Platform Reliability & Cloud-Native Engineering Team**.  
 Licensed under the **Apache 2.0 License**.
