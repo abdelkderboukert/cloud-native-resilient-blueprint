@@ -7,7 +7,9 @@ Namespace: {{ .Release.Namespace }}
 Environment: {{ .Values.global.environment }}
 
 1. Tiers Provisioned:
-  - Infrastructure: StorageClass '{{ .Values.infrastructure.storageClass.name }}', Zero-Trust NetworkPolicies
+  - Infrastructure: StorageClass '{{ .Values.global.storageClass }}', NetworkPolicies, namespace quotas and limits
+  - Access Control: read-only audit identity '{{ .Values.infrastructure.accessControl.auditor.name }}' in '{{ .Values.namespaces.platformOps }}'
+  - Cluster Backup: Velero schedule '{{ .Values.clusterBackup.velero.scheduleName }}' ({{ .Values.clusterBackup.velero.schedule }})
   - Data Tier: RustFS ({{ .Values.dataTier.rustfs.storage.size }}), CloudNativePG Cluster '{{ .Values.dataTier.cnpg.clusterName }}' ({{ .Values.dataTier.cnpg.instances }} instances)
   - Messaging Tier: Apache Kafka KRaft Broker ({{ .Values.messagingTier.kafka.storage.size }})
   - App Tier: Django REST Framework API ({{ .Values.appTier.django.replicas }} replicas)
@@ -24,5 +26,8 @@ Environment: {{ .Values.global.environment }}
   Verify health probes:
     curl -i http://localhost:8000/healthz/
     curl -i http://localhost:8000/readyz/
+
+4. DevOps audit token (short-lived):
+  kubectl -n {{ .Values.namespaces.platformOps }} create token {{ .Values.infrastructure.accessControl.auditor.name }} --duration=1h
 
 ==============================================================================

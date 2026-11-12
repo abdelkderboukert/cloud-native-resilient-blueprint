@@ -1,47 +1,55 @@
 <#
 .SYNOPSIS
-    Enterprise Event-Driven Micro-Platform (EEMP) PowerShell Deployment Orchestrator
+    Deploy the Enterprise Event-Driven Micro-Platform Helm chart.
+.PARAMETER ValuesFile
+    Optional values file. Defaults to the chart's values.yaml.
 #>
+param(
+    [string]$ValuesFile
+)
 
 $ErrorActionPreference = "Stop"
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Split-Path -Parent $ScriptDir
-$K8sDir = Join-Path $ProjectRoot "deploy\kubernetes"
+function Invoke-CheckedCommand {
+    param(
+        [string]$Program,
+        [string[]]$Arguments
+    )
 
-Write-Host "==============================================================================" -ForegroundColor Cyan
-Write-Host " Starting Enterprise Platform Deployment Orchestration" -ForegroundColor Cyan
-Write-Host " Target Manifests: $K8sDir" -ForegroundColor Cyan
-Write-Host "==============================================================================" -ForegroundColor Cyan
-
-# Validate kubectl connection
-try {
-    kubectl cluster-info | Out-Null
-} catch {
-    Write-Warning "Could not connect to Kubernetes cluster via kubectl. Verify kubeconfig."
+    & $Program @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "'$Program $($Arguments -join ' ')' failed with exit code $LASTEXITCODE."
+    }
 }
 
-Write-Host "`n[1/5] Deploying Infrastructure Layer (Namespaces, Longhorn SC, Network Policies)..." -ForegroundColor Yellow
-kubectl apply -k (Join-Path $K8sDir "00-infrastructure")
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent $ScriptDir
+$ChartDir = Join-Path $ProjectRoot "deploy\helm\enterprise-platform"
 
-Write-Host "`n[2/5] Deploying Data Tier (RustFS Object Storage & CloudNativePG)..." -ForegroundColor Yellow
-kubectl apply -k (Join-Path $K8sDir "01-data-tier")
+if ([string]::IsNullOrWhiteSpace($ValuesFile)) {
+    $ValuesFile = Join-Path $ChartDir "values.yaml"
+} elseif (-not [System.IO.Path]::IsPathRooted($ValuesFile)) {
+    $ValuesFile = Join-Path $ProjectRoot $ValuesFile
+}
 
-Write-Host "`n[3/5] Deploying Messaging Tier (Apache Kafka KRaft StatefulSet & Topics)..." -ForegroundColor Yellow
-kubectl apply -k (Join-Path $K8sDir "02-messaging-tier")
+if (-not (Test-Path -LiteralPath $ValuesFile -PathType Leaf)) {
+    throw "Helm values file not found: $ValuesFile"
+}
 
-Write-Host "`n[4/5] Deploying Application Tier (Django REST Framework Microservice)..." -ForegroundColor Yellow
-kubectl apply -k (Join-Path $K8sDir "03-app-tier")
-
-Write-Host "`n[5/5] Deploying Edge Routing Layer (Kong Ingress & Plugins)..." -ForegroundColor Yellow
-kubectl apply -k (Join-Path $K8sDir "04-edge-routing")
-
-Write-Host "`n------------------------------------------------------------------------------"
-Write-Host " Waiting for Pod rollouts..." -ForegroundColor Green
-Write-Host "------------------------------------------------------------------------------"
-
-kubectl rollout status statefulset/rustfs-storage -n data-tier --timeout=180s
-kubectl rollout status statefulset/kafka-broker -n messaging-tier --timeout=180s
-kubectl rollout status deployment/django-api -n app-tier --timeout=180s
-
-Write-Host "`n[+] Deployment process finished." -ForegroundColor Green
+Invoke-CheckedCommand kubectl @("cluster-info")
+Invoke-CheckedCommand helm @(
+    "upgrade", "--install", "enterprise-platform", $ChartDir,
+    "--namespace", "default", "--create-namespace", "--values", $ValuesFile
+)
+Invoke-CheckedCommand kubectl @(
+    "-n", "data-tier", "rollout", "status", "statefulset/rustfs-storage", "--timeout=180s"
+)
+Invoke-CheckedCommand kubectl @(
+    "-n", "messaging-tier", "rollout", "status", "statefulset/kafka-broker", "--timeout=180s"
+)
+Invoke-CheckedCommand kubectl @(
+    "-n", "app-tier", "rollout", "status", "deployment/django-api", "--timeout=180s"
+)
+Invoke-CheckedCommand kubectl @(
+    "get", "pods", "-A", "-l", "app.kubernetes.io/part-of=enterprise-event-driven-micro-platform"
+)

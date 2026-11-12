@@ -6,25 +6,10 @@ This document details verification steps to ensure every tier of the Enterprise 
 
 ## 1. Automated Verification Checks
 
-### 1.1 Manifest Integrity & Kustomize Validation
-Execute the manifest validator to verify all Kubernetes resources against specification constraints:
+### 1.1 Helm Chart Validation
+Lint and render the Helm chart to verify its templates and default values:
 ```bash
-python scripts/validate-manifests.py
-```
-Expected output:
-```
-[*] Scanning manifests in deploy/kubernetes...
-  [OK] 00-infrastructure/longhorn-sc.yaml
-  [OK] 00-infrastructure/namespaces.yaml
-  [OK] 00-infrastructure/network-policies.yaml
-  [OK] 01-data-tier/...
-  ...
-[+] All manifests conform to the Enterprise Architecture Specification!
-```
-
-Verify Kustomize dry-run compilation:
-```bash
-kubectl kustomize deploy/kubernetes/ > /dev/null
+make validate
 ```
 
 ### 1.2 Django Application Test Suite

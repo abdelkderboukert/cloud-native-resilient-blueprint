@@ -135,6 +135,11 @@ spec:
       podSelector:
         matchLabels:
           app.kubernetes.io/name: cloudnative-pg
+    {{- if .Values.clusterBackup.velero.enabled }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.clusterBackup.velero.namespace }}
+    {{- end }}
     ports:
     - protocol: TCP
       port: 9000

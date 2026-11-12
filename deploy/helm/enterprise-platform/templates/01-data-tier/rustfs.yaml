@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/name: rustfs
         {{- include "enterprise-platform.labels" . | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: rustfs
         image: "{{ .Values.dataTier.rustfs.image.repository }}:{{ .Values.dataTier.rustfs.image.tag }}"

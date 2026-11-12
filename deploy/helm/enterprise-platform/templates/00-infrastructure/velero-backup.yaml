@@ -1,0 +1,38 @@
+{{- if .Values.clusterBackup.velero.enabled }}
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: {{ .Values.clusterBackup.velero.storageLocationName }}
+  namespace: {{ .Values.clusterBackup.velero.namespace }}
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  provider: aws
+  objectStorage:
+    bucket: {{ .Values.clusterBackup.velero.bucket | quote }}
+  config:
+    region: {{ .Values.clusterBackup.velero.region | quote }}
+    s3Url: {{ .Values.clusterBackup.velero.endpoint | quote }}
+    s3ForcePathStyle: "true"
+  credential:
+    name: {{ .Values.clusterBackup.velero.credentialsSecretName }}
+    key: cloud
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: {{ .Values.clusterBackup.velero.scheduleName }}
+  namespace: {{ .Values.clusterBackup.velero.namespace }}
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.clusterBackup.velero.schedule | quote }}
+  template:
+    ttl: {{ .Values.clusterBackup.velero.retention | quote }}
+    storageLocation: {{ .Values.clusterBackup.velero.storageLocationName | quote }}
+    includedNamespaces:
+    - "*"
+    includeClusterResources: true
+    snapshotVolumes: false
+    defaultVolumesToFsBackup: true
+{{- end }}

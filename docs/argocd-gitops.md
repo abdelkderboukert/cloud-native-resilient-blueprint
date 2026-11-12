@@ -59,7 +59,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 The `AppProject` isolates permissions and enforces destination namespace whitelisting.
 
 ```bash
-kubectl apply -f deploy/argocd/appproject.yaml
+kubectl apply -f deploy/helm/enterprise-platform/gitops/appproject.yaml
 ```
 
 Inspect the project:
@@ -75,12 +75,12 @@ Deploy the declarative ArgoCD `Application` to synchronize the Helm chart:
 
 ### Production Deployment:
 ```bash
-kubectl apply -f deploy/argocd/application.yaml
+kubectl apply -f deploy/helm/enterprise-platform/gitops/application.yaml
 ```
 
 ### Development Deployment:
 ```bash
-kubectl apply -f deploy/argocd/application-dev.yaml
+kubectl apply -f deploy/helm/enterprise-platform/gitops/application-dev.yaml
 ```
 
 ### Inspect Sync Status via CLI:
@@ -113,3 +113,26 @@ Every Git commit pushed to `main` or pull request triggers the CI pipeline:
 2. **Dependency Audit**: `pip-audit` checks Python dependencies against vulnerability databases.
 3. **Helm Misconfiguration Gate**: Trivy config scanner audits the Helm chart for security risks (e.g. root execution, privilege escalation, unconstrained resources).
 4. **Container Scan & Release**: Builds Django image, scans with Trivy, and pushes to `ghcr.io` for ArgoCD to pull.
+
+## 7. Cluster hardening prerequisites
+
+The Helm chart creates the platform namespaces, read-only audit RBAC, application
+service account, namespace quotas/LimitRanges, and the Velero backup schedule.
+Before syncing the chart:
+
+1. Install Velero with its AWS-compatible S3 plugin and node-agent, and create
+   the `cloud-credentials` Secret in the `velero` namespace. The Secret must
+   contain a `cloud` key with credentials for the RustFS S3 endpoint.
+2. Ensure the `cluster-backups` bucket can be created in RustFS. The chart's
+   bucket-init job creates it alongside the PostgreSQL backup bucket.
+3. Configure encryption at rest using the cluster provider's supported
+   control-plane setting. For self-managed clusters, follow
+   `deploy/helm/enterprise-platform/cluster-hardening/encryption/README.md`.
+4. Map the `platform-superusers` Kubernetes group to the intended identity
+   provider group. That group is bound to `cluster-admin`; do not bind human
+   users to a shared service-account token.
+
+The Velero schedule backs up namespaced and cluster-scoped Kubernetes
+resources daily and uses Velero file-system backup for volumes. RustFS is
+currently in-cluster, so replicate the backup bucket off-cluster for cluster
+disaster recovery.

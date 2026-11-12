@@ -18,10 +18,10 @@ kubectl -n app-tier scale deployment django-api --replicas=5
 
 ### 1.2 Scaling CloudNativePG Instances
 To expand PostgreSQL read-replicas from 3 to 5:
-1. Update `instances: 5` in `deploy/kubernetes/01-data-tier/cnpg-cluster.yaml`.
-2. Apply the update:
+1. Update `dataTier.cnpg.instances` to `5` in `deploy/helm/enterprise-platform/values-prod.yaml`.
+2. Apply the Helm release update:
    ```bash
-   kubectl apply -k deploy/kubernetes/01-data-tier/
+   bash scripts/deploy.sh deploy/helm/enterprise-platform/values-prod.yaml
    ```
 3. CNPG orchestrates automated replica provisioning and Longhorn PVC binding with zero primary downtime.
 
@@ -30,15 +30,11 @@ To expand PostgreSQL read-replicas from 3 to 5:
 ## 2. Secrets Rotation
 
 ### 2.1 Database Credentials Rotation
-1. Update the password in `deploy/kubernetes/01-data-tier/cnpg-secret.yaml`.
-2. Apply the updated secret:
+1. Update the CNPG and Django credentials in the selected Helm values file, or preferably reference externally managed secrets.
+2. Apply the updated release and trigger a rolling restart of the Django pods:
    ```bash
-   kubectl apply -f deploy/kubernetes/01-data-tier/cnpg-secret.yaml
-   ```
-3. Update `DATABASE_URL` in `deploy/kubernetes/03-app-tier/django-secret.yaml`.
-4. Trigger a rolling restart of the Django pods:
-   ```bash
-   kubectl -n app-tier rollout restart deployment django-api
+   bash scripts/deploy.sh deploy/helm/enterprise-platform/values-prod.yaml
+   kubectl -n app-tier rollout restart deployment/django-api
    ```
 
 ### 2.2 RustFS S3 Credentials Rotation
@@ -51,9 +47,9 @@ To expand PostgreSQL read-replicas from 3 to 5:
 ## 3. Storage Maintenance & Volume Expansion
 
 To expand persistent volume size (e.g., expanding PostgreSQL storage from 20Gi to 50Gi):
-1. In `cnpg-cluster.yaml`, change `spec.storage.size` from `20Gi` to `50Gi`.
-2. Apply the manifest:
+1. In `values-prod.yaml`, change `dataTier.cnpg.storage.size` from `20Gi` to `50Gi`.
+2. Apply the Helm release update:
    ```bash
-   kubectl apply -k deploy/kubernetes/01-data-tier/
+   bash scripts/deploy.sh deploy/helm/enterprise-platform/values-prod.yaml
    ```
 3. Longhorn automatically resizes the underlying block device online without unmounting the volume.

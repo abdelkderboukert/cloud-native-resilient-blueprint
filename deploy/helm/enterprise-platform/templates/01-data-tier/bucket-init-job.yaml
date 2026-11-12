@@ -18,6 +18,7 @@ spec:
         {{- include "enterprise-platform.labels" . | nindent 8 }}
     spec:
       restartPolicy: OnFailure
+      automountServiceAccountToken: false
       containers:
       - name: bucket-init
         image: {{ .Values.dataTier.rustfs.bucketInit.image | quote }}
@@ -44,5 +45,9 @@ spec:
           echo "Connected to RustFS. Ensuring bucket '{{ .Values.dataTier.rustfs.bucketInit.targetBucket }}' exists..."
           mc mb --ignore-existing rustfs/{{ .Values.dataTier.rustfs.bucketInit.targetBucket }}
           mc anonymous set none rustfs/{{ .Values.dataTier.rustfs.bucketInit.targetBucket }}
+          {{- if .Values.clusterBackup.velero.enabled }}
+          mc mb --ignore-existing rustfs/{{ .Values.clusterBackup.velero.bucket }}
+          mc anonymous set none rustfs/{{ .Values.clusterBackup.velero.bucket }}
+          {{- end }}
           echo "Bucket provisioned."
 {{- end }}

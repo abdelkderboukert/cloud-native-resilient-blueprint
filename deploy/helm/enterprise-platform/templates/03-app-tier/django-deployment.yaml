@@ -18,6 +18,8 @@ spec:
         app.kubernetes.io/name: {{ .Values.appTier.django.name }}
         {{- include "enterprise-platform.labels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ .Values.infrastructure.accessControl.projectServiceAccount.name }}
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.appTier.django.securityContext | nindent 8 }}
       containers:

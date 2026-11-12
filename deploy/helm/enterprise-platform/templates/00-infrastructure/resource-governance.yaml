@@ -1,0 +1,39 @@
+{{- if .Values.infrastructure.resourceGovernance.enabled }}
+{{- range $tier, $settings := .Values.infrastructure.resourceGovernance.namespaces }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ printf "%s-%s-quota" (include "enterprise-platform.fullname" $) ($tier | kebabcase) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ index $.Values.namespaces $tier }}
+  labels:
+    {{- include "enterprise-platform.labels" $ | nindent 4 }}
+spec:
+  hard:
+    {{- toYaml $settings.quota | nindent 4 }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ printf "%s-%s-limits" (include "enterprise-platform.fullname" $) ($tier | kebabcase) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ index $.Values.namespaces $tier }}
+  labels:
+    {{- include "enterprise-platform.labels" $ | nindent 4 }}
+spec:
+  limits:
+  - type: Container
+    min:
+      {{- toYaml $settings.container.min | nindent 6 }}
+    max:
+      {{- toYaml $settings.container.max | nindent 6 }}
+    default:
+      {{- toYaml $settings.container.default | nindent 6 }}
+    defaultRequest:
+      {{- toYaml $settings.container.defaultRequest | nindent 6 }}
+  - type: PersistentVolumeClaim
+    min:
+      {{- toYaml $settings.pvc.min | nindent 6 }}
+    max:
+      {{- toYaml $settings.pvc.max | nindent 6 }}
+{{- end }}
+{{- end }}

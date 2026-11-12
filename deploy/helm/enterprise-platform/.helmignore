@@ -7,3 +7,5 @@
 *.bak
 .idea/
 .vscode/
+gitops/
+cluster-hardening/

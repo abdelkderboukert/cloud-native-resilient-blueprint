@@ -31,6 +31,7 @@ ENV/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+deploy/helm/enterprise-platform/cluster-hardening/encryption/encryption-config.yaml
 media/
 staticfiles/
 

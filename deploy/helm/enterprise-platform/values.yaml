@@ -5,9 +5,7 @@ global:
   storageClass: "enterprise-longhorn-sc"
   domain: "enterprise.local"
   environment: "production"
-  commonLabels:
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
+  commonLabels: {}
 
 # Namespace Configuration
 namespaces:
@@ -16,12 +14,12 @@ namespaces:
   messagingTier: "messaging-tier"
   appTier: "app-tier"
   ingressTier: "ingress-tier"
+  platformOps: "platform-ops"
 
 # Global Infrastructure & Storage
 infrastructure:
   storageClass:
     create: true
-    name: "enterprise-longhorn-sc"
     numberOfReplicas: "2"
     staleReplicaTimeout: "2880"
     reclaimPolicy: "Retain"
@@ -29,6 +27,168 @@ infrastructure:
     allowVolumeExpansion: true
   networkPolicies:
     enabled: true
+  accessControl:
+    enabled: true
+    auditor:
+      enabled: true
+      name: "enterprise-platform-auditor"
+    superUsers:
+      enabled: true
+      group: "platform-superusers"
+      clusterRole: "cluster-admin"
+    projectServiceAccount:
+      name: "enterprise-platform"
+  resourceGovernance:
+    enabled: true
+    namespaces:
+      dataTier:
+        quota:
+          requests.cpu: "12"
+          requests.memory: "32Gi"
+          limits.cpu: "24"
+          limits.memory: "48Gi"
+          requests.storage: "500Gi"
+          persistentvolumeclaims: "20"
+          pods: "30"
+        container:
+          min:
+            cpu: "50m"
+            memory: "64Mi"
+          max:
+            cpu: "4"
+            memory: "8Gi"
+          default:
+            cpu: "1"
+            memory: "2Gi"
+          defaultRequest:
+            cpu: "250m"
+            memory: "512Mi"
+        pvc:
+          min:
+            storage: "1Gi"
+          max:
+            storage: "200Gi"
+      messagingTier:
+        quota:
+          requests.cpu: "8"
+          requests.memory: "16Gi"
+          limits.cpu: "16"
+          limits.memory: "32Gi"
+          requests.storage: "200Gi"
+          persistentvolumeclaims: "10"
+          pods: "15"
+        container:
+          min:
+            cpu: "50m"
+            memory: "64Mi"
+          max:
+            cpu: "4"
+            memory: "8Gi"
+          default:
+            cpu: "1"
+            memory: "2Gi"
+          defaultRequest:
+            cpu: "250m"
+            memory: "512Mi"
+        pvc:
+          min:
+            storage: "1Gi"
+          max:
+            storage: "100Gi"
+      appTier:
+        quota:
+          requests.cpu: "8"
+          requests.memory: "8Gi"
+          limits.cpu: "16"
+          limits.memory: "16Gi"
+          requests.storage: "30Gi"
+          persistentvolumeclaims: "10"
+          pods: "30"
+        container:
+          min:
+            cpu: "50m"
+            memory: "64Mi"
+          max:
+            cpu: "2"
+            memory: "2Gi"
+          default:
+            cpu: "500m"
+            memory: "512Mi"
+          defaultRequest:
+            cpu: "100m"
+            memory: "128Mi"
+        pvc:
+          min:
+            storage: "1Gi"
+          max:
+            storage: "20Gi"
+      ingressTier:
+        quota:
+          requests.cpu: "4"
+          requests.memory: "4Gi"
+          limits.cpu: "8"
+          limits.memory: "8Gi"
+          requests.storage: "10Gi"
+          persistentvolumeclaims: "5"
+          pods: "15"
+        container:
+          min:
+            cpu: "50m"
+            memory: "64Mi"
+          max:
+            cpu: "2"
+            memory: "2Gi"
+          default:
+            cpu: "500m"
+            memory: "512Mi"
+          defaultRequest:
+            cpu: "100m"
+            memory: "128Mi"
+        pvc:
+          min:
+            storage: "1Gi"
+          max:
+            storage: "10Gi"
+      platformOps:
+        quota:
+          requests.cpu: "2"
+          requests.memory: "2Gi"
+          limits.cpu: "4"
+          limits.memory: "4Gi"
+          requests.storage: "5Gi"
+          persistentvolumeclaims: "3"
+          pods: "10"
+        container:
+          min:
+            cpu: "50m"
+            memory: "64Mi"
+          max:
+            cpu: "2"
+            memory: "2Gi"
+          default:
+            cpu: "500m"
+            memory: "512Mi"
+          defaultRequest:
+            cpu: "100m"
+            memory: "128Mi"
+        pvc:
+          min:
+            storage: "1Gi"
+          max:
+            storage: "5Gi"
+
+clusterBackup:
+  velero:
+    enabled: true
+    namespace: "velero"
+    scheduleName: "enterprise-platform-daily"
+    schedule: "0 2 * * *"
+    storageLocationName: "rustfs-cluster-backups"
+    bucket: "cluster-backups"
+    retention: "720h"
+    region: "us-east-1"
+    endpoint: "http://rustfs-service.data-tier.svc.cluster.local:9000"
+    credentialsSecretName: "cloud-credentials"
 
 # 1. Object Storage & Stateful Database Tier
 dataTier:
@@ -120,7 +280,7 @@ appTier:
     name: "django-api"
     replicas: 2
     image:
-      repository: "ghcr.io/user/django-enterprise-api"
+      repository: "ghcr.io/abdelkderboukert/django-enterprise-api"
       tag: "latest"
       pullPolicy: "IfNotPresent"
     secretKey: "django-insecure-enterprise-production-key-change-in-vault-immediately"

@@ -2,7 +2,7 @@
 
 ### Resilient Cloud-Native Architecture Blueprint, Helm 3, ArgoCD GitOps & DevSecOps Suite
 
-[![Platform CI](https://github.com/enterprise/cloud-native-resilient-blueprint/actions/workflows/ci.yaml/badge.svg)](.github/workflows/ci.yaml)
+[![Platform CI](https://github.com/abdelkderboukert/cloud-native-resilient-blueprint/actions/workflows/ci.yaml/badge.svg)](.github/workflows/ci.yaml)
 [![Helm](https://img.shields.io/badge/Helm-3.x-0F1689.svg?logo=helm&logoColor=white)](https://helm.sh)
 [![ArgoCD](https://img.shields.io/badge/GitOps-ArgoCD-orange.svg?logo=argo&logoColor=white)](https://argo-cd.readthedocs.io/)
 [![Trivy](https://img.shields.io/badge/Security-Trivy%20Scanned-blue.svg?logo=aquasecurity&logoColor=white)](https://trivy.dev/)
@@ -313,12 +313,11 @@ docker compose down -v
 Deploy the platform to any Kubernetes cluster (Minikube, Kind, EKS, GKE, AKS, or bare metal):
 
 ```bash
-# 1. Inspect and lint the Helm chart
-python scripts/validate-helm.py
+# 1. Validate and render the Helm chart
+make validate
 
-# 2. Deploy via Helm
-helm upgrade --install enterprise-platform deploy/helm/enterprise-platform \
-  --values deploy/helm/enterprise-platform/values.yaml
+# 2. Deploy with the default or an environment-specific values file
+bash scripts/deploy.sh deploy/helm/enterprise-platform/values-prod.yaml
 
 # 3. Verify pod status across namespaces
 kubectl get pods -n data-tier
@@ -334,14 +333,27 @@ Synchronize directly from Git:
 
 ```bash
 # 1. Register the AppProject
-kubectl apply -f deploy/argocd/appproject.yaml
+kubectl apply -f deploy/helm/enterprise-platform/gitops/appproject.yaml
 
 # 2. Deploy the ArgoCD Application
-kubectl apply -f deploy/argocd/application.yaml
+kubectl apply -f deploy/helm/enterprise-platform/gitops/application.yaml
 
 # 3. Watch ArgoCD synchronize all tiers
 kubectl -n argocd get application enterprise-platform-prod
 ```
+
+### Cluster Hardening
+
+The Helm chart also provisions read-only DevOps audit RBAC, a dedicated
+non-privileged application service account, per-namespace ResourceQuota and
+LimitRange policies, and a daily Velero cluster backup schedule to RustFS.
+Velero and its S3 plugin/node-agent must be installed first; object-store
+credentials are supplied separately and are never stored in chart values.
+
+For etcd encryption on self-managed clusters, use the protected configuration
+generator and runbook under
+[`deploy/helm/enterprise-platform/cluster-hardening/`](deploy/helm/enterprise-platform/cluster-hardening/).
+Managed Kubernetes encryption must be configured through the provider.
 
 ---
 
@@ -353,13 +365,10 @@ Run the full local audit suite to test code quality, secrets, dependencies, and 
 # 1. Local DevSecOps Audit (Secrets, Antipatterns, Dependencies)
 python scripts/security-scan.py
 
-# 2. Helm Chart Syntax & Template Block Balance Check
-python scripts/validate-helm.py
+# 2. Helm Chart Structural, Lint, and Render Validation
+make validate
 
-# 3. Raw Kubernetes Manifest & Kustomize Compilation Validator
-python scripts/validate-manifests.py
-
-# 4. Django Application Unit & Integration Tests (100% pass)
+# 3. Django Application Unit & Integration Tests
 cd src/django-enterprise-api
 python manage.py test
 ```
@@ -374,28 +383,26 @@ cloud-native-resilient-blueprint/
 │   └── workflows/
 │       └── ci.yaml                       # DevSecOps CI/CD Pipeline (Trivy, Gitleaks, Test, Build, Push)
 ├── .gitleaks.toml                        # Gitleaks rule configuration & allowlists
-├── .yamllint.yml                         # YAML formatting and pattern rules
+├── .yamllint.yml                        # YAML formatting and pattern rules
 ├── config/kong/kong.yml                  # Declarative Kong Gateway configuration
 ├── deploy/
-│   ├── argocd/                           # Declarative GitOps ArgoCD Manifests
-│   │   ├── appproject.yaml               # ArgoCD AppProject with destination namespace constraints
-│   │   ├── application.yaml              # Production ArgoCD Application (tracking Helm)
-│   │   └── application-dev.yaml          # Development ArgoCD Application
-│   ├── helm/enterprise-platform/         # Enterprise Platform Helm 3 Chart
-│   │   ├── Chart.yaml                    # Helm chart metadata
-│   │   ├── values.yaml                   # Base values & parameterization
-│   │   ├── values-dev.yaml               # Dev environment overrides
-│   │   ├── values-prod.yaml              # Production environment overrides
-│   │   ├── .helmignore                   # Helm packaging ignore list
-│   │   └── templates/                    # Parameterized multi-tier templates
-│   │       ├── _helpers.tpl              # Shared template helpers
-│   │       ├── 00-infrastructure/        # StorageClass, Namespaces, NetworkPolicies
-│   │       ├── 01-data-tier/             # RustFS, CNPG Cluster, S3 Backups
-│   │       ├── 02-messaging-tier/        # Apache Kafka KRaft StatefulSet & Topics
-│   │       ├── 03-app-tier/              # Django API Deployment, Service, HPA, PDB
-│   │       ├── 04-edge-routing/          # KongIngress, Ingress, Rate-limiting, Tracing
-│   │       └── NOTES.txt                 # Post-install cluster instructions
-│   └── kubernetes/                       # Standard Kustomize tiered manifests
+│   └── helm/
+│       └── enterprise-platform/          # Single source of Kubernetes deployment configuration
+│           ├── Chart.yaml                # Helm chart metadata
+│           ├── values.yaml               # Base values & parameterization
+│           ├── values-dev.yaml           # Dev environment overrides
+│           ├── values-prod.yaml          # Production environment overrides
+│           ├── .helmignore               # Helm packaging ignore list
+│           ├── gitops/                   # ArgoCD bootstrap AppProject and Applications
+│           ├── cluster-hardening/       # Control-plane encryption runbook and generator
+│           └── templates/                # Parameterized multi-tier templates
+│               ├── _helpers.tpl          # Shared template helpers
+│               ├── 00-infrastructure/    # Storage, RBAC, quotas, limits, Velero schedule
+│               ├── 01-data-tier/         # RustFS, CNPG Cluster, S3 Backups
+│               ├── 02-messaging-tier/    # Apache Kafka KRaft StatefulSet & Topics
+│               ├── 03-app-tier/          # Django API Deployment, Service, HPA, PDB
+│               ├── 04-edge-routing/      # KongIngress, Ingress, Rate-limiting, Tracing
+│               └── NOTES.txt             # Post-install cluster instructions
 ├── docs/
 │   ├── architecture.md                   # Full architecture deep-dive & sequence diagrams
 │   ├── argocd-gitops.md                  # Comprehensive ArgoCD GitOps setup & operations
@@ -406,10 +413,9 @@ cloud-native-resilient-blueprint/
 ├── scripts/
 │   ├── security-scan.py                  # Local DevSecOps secret, pattern & dependency scanner
 │   ├── validate-helm.py                  # Helm chart structure and template syntax validator
-│   ├── validate-manifests.py             # Manifest specification & syntax validator
 │   ├── smoke-test.py                     # End-to-end integration smoke test runner
-│   ├── deploy.sh / deploy.ps1            # Multi-tier deployment orchestrators
-│   └── teardown.sh                       # Teardown utility
+│   ├── deploy.sh / deploy.ps1            # Helm deployment scripts
+│   └── teardown.sh                       # Helm release teardown utility
 ├── src/django-enterprise-api/            # Django REST Framework Microservice
 │   ├── apps/                             # Core (Kafka Producer, Health, Tracing), Articles, Users
 │   ├── enterprise_platform/              # Settings (psycopg3, 12-factor), URLs, WSGI, ASGI

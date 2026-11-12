@@ -2,6 +2,46 @@
 global:
   environment: "development"
 
+infrastructure:
+  resourceGovernance:
+    namespaces:
+      dataTier:
+        quota:
+          requests.cpu: "6"
+          requests.memory: "16Gi"
+          limits.cpu: "12"
+          limits.memory: "24Gi"
+          requests.storage: "250Gi"
+          persistentvolumeclaims: "10"
+          pods: "20"
+      messagingTier:
+        quota:
+          requests.cpu: "4"
+          requests.memory: "8Gi"
+          limits.cpu: "8"
+          limits.memory: "16Gi"
+          requests.storage: "100Gi"
+          persistentvolumeclaims: "5"
+          pods: "10"
+      appTier:
+        quota:
+          requests.cpu: "4"
+          requests.memory: "4Gi"
+          limits.cpu: "8"
+          limits.memory: "8Gi"
+          requests.storage: "15Gi"
+          persistentvolumeclaims: "5"
+          pods: "15"
+      ingressTier:
+        quota:
+          requests.cpu: "2"
+          requests.memory: "2Gi"
+          limits.cpu: "4"
+          limits.memory: "4Gi"
+          requests.storage: "5Gi"
+          persistentvolumeclaims: "3"
+          pods: "10"
+
 dataTier:
   cnpg:
     instances: 1

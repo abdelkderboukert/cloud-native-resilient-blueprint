@@ -62,7 +62,7 @@ def scan_secrets_and_patterns():
                 issues.append(f"{rel_path}: Potential {label} detected: '{matched_str[:40]}...'")
 
         # Check forbidden anti-patterns in production manifests
-        if "deploy/helm" in str(rel_path) or "deploy/kubernetes" in str(rel_path):
+        if "deploy/helm" in str(rel_path):
             if "privileged: true" in content.lower():
                 issues.append(f"{rel_path}: Security violation: privileged container enabled!")
             if "runasroot: true" in content.lower():

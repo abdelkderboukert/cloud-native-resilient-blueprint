@@ -1,23 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: enterprise-platform-prod
+  name: enterprise-platform-dev
   namespace: argocd
   labels:
     app.kubernetes.io/part-of: enterprise-event-driven-micro-platform
-    environment: production
+    environment: development
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: enterprise-platform
   source:
-    repoURL: https://github.com/enterprise/cloud-native-resilient-blueprint.git
-    targetRevision: main
+    repoURL: https://github.com/abdelkderboukert/cloud-native-resilient-blueprint.git
+    targetRevision: develop
     path: deploy/helm/enterprise-platform
     helm:
       valueFiles:
         - values.yaml
-        - values-prod.yaml
+        - values-dev.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: default
@@ -25,14 +25,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
-      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
-      - PruneLast=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
-        maxDuration: 3m

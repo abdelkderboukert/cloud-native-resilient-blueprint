@@ -1,0 +1,102 @@
+{{- if .Values.infrastructure.accessControl.enabled }}
+{{- if .Values.infrastructure.accessControl.auditor.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.infrastructure.accessControl.auditor.name }}
+  namespace: {{ .Values.namespaces.platformOps }}
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "enterprise-platform.fullname" . }}-auditor
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - nodes
+  - persistentvolumeclaims
+  - persistentvolumes
+  - pods
+  - pods/log
+  - replicationcontrollers
+  - limitranges
+  - resourcequotas
+  - serviceaccounts
+  - services
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["cronjobs", "jobs"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses", "volumeattachments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["postgresql.cnpg.io"]
+  resources: ["backups", "clusters", "poolers", "scheduledbackups"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["velero.io"]
+  resources: ["backupstoragelocations", "backups", "schedules"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "enterprise-platform.fullname" . }}-auditor
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.infrastructure.accessControl.auditor.name }}
+  namespace: {{ .Values.namespaces.platformOps }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "enterprise-platform.fullname" . }}-auditor
+{{- end }}
+{{- if .Values.infrastructure.accessControl.superUsers.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "enterprise-platform.fullname" . }}-superusers
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+subjects:
+- kind: Group
+  name: {{ .Values.infrastructure.accessControl.superUsers.group | quote }}
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.infrastructure.accessControl.superUsers.clusterRole }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.infrastructure.accessControl.projectServiceAccount.name }}
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+automountServiceAccountToken: false
