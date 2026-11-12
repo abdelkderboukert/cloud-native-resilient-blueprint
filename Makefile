@@ -31,9 +31,7 @@ security-scan:
 	python scripts/security-scan.py
 
 test:
-	@set USE_SQLITE=True
-	@set KAFKA_TEST_MODE=True
-	cd src/django-enterprise-api && python manage.py test
+	cd src/django-enterprise-api && USE_SQLITE=True KAFKA_TEST_MODE=True DJANGO_TESTING=1 python manage.py test
 
 argocd-apply:
 	kubectl apply -f $(HELM_CHART)/gitops/appproject.yaml

@@ -276,8 +276,26 @@ messagingTier:
 
 # 3. Application Layer (Django REST Framework)
 appTier:
+  cache:
+    enabled: true
+    name: api-cache
+    image:
+      repository: valkey/valkey
+      tag: 8.1.1-alpine
+      pullPolicy: IfNotPresent
+    port: 6379
+    maxMemory: 256mb
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "384Mi"
+      requests:
+        cpu: "50m"
+        memory: "96Mi"
   django:
     enabled: true
+    cache:
+      ttlSeconds: 60
     name: "django-api"
     replicas: 2
     image:

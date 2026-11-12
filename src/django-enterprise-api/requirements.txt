@@ -1,5 +1,6 @@
 Django>=5.0,<5.2
 djangorestframework>=3.15.0
+django-redis>=5.4.0,<6.0
 django-cors-headers>=4.3.0
 psycopg[binary]>=3.1.18
 dj-database-url>=2.1.0

@@ -24,7 +24,7 @@
 > 1. **Distributed Block Storage** with cross-node replication (**Longhorn CSI**).
 > 2. **High-Availability PostgreSQL 16** with automated failover and continuous S3 WAL archiving (**CloudNativePG** + **RustFS S3**).
 > 3. **Next-Gen Distributed Streaming** in native ZooKeeper-less mode (**Apache Kafka KRaft**).
-> 4. **Resilient Application Microservice** emitting asynchronous CloudEvents envelopes (**Django REST Framework** + **Psycopg 3**).
+> 4. **Resilient Application Microservice** using a shared **Valkey** read cache and emitting asynchronous CloudEvents envelopes (**Django REST Framework** + **Psycopg 3**).
 > 5. **Edge Routing & Policy Enforcement** with rate-limiting and correlation ID tracing (**Kong API Gateway**).
 > 6. **Declarative GitOps Continuous Delivery** (**ArgoCD** + **Helm 3**).
 > 7. **Shift-Left DevSecOps** with automated secret detection (**Gitleaks**), CVE auditing (**pip-audit**), and Kubernetes misconfiguration scanning (**Trivy**).
@@ -289,7 +289,7 @@ When asked why this platform was designed this way, here are the key technical d
 Experience the complete 5-tier architecture locally on your laptop without needing a Kubernetes cluster:
 
 ```bash
-# 1. Start all tiers in the background (RustFS, Postgres 16, Kafka KRaft, Django, Kong)
+# 1. Start all tiers in the background (RustFS, Postgres 16, Kafka KRaft, Valkey cache, Django, Kong)
 docker compose up -d --build
 
 # 2. Check running services
@@ -305,6 +305,11 @@ python scripts/smoke-test.py --base-url http://localhost:8000
 # 5. Stop and tear down
 docker compose down -v
 ```
+
+The API uses Valkey for shared caching of article list/detail GET responses
+(60-second default TTL). Article writes invalidate the cached article responses;
+user endpoints are not cached. If Redis/Valkey is unavailable, Django logs the
+cache error and continues serving requests from the database.
 
 ---
 

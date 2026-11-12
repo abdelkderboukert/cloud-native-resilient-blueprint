@@ -47,23 +47,27 @@ graph TB
     Client["Client / External Edge"]
     Kong["Kong API Gateway<br/>(Edge Routing: Port 80/443)"]
     Django["Django REST Framework API<br/>(App Tier: Port 8000)"]
+    Cache["Valkey API Cache<br/>(App Tier: Port 6379)"]
     CNPG["CloudNativePG PostgreSQL 16<br/>(3 HA Instances: Port 5432)"]
     Kafka["Apache Kafka Broker<br/>(KRaft Mode: Port 9092)"]
     RustFS["RustFS S3 Storage<br/>(Object Tier: Port 9000)"]
 
     Client -->|HTTP/HTTPS| Kong
     Kong -->|CoreDNS TCP 8000| Django
+    Django -->|Article read cache TCP 6379| Cache
     Django -->|psycopg3 TCP 5432| CNPG
     Django -->|Event Stream TCP 9092| Kafka
     CNPG -.->|Continuous WAL Archiving Port 9000| RustFS
 
     classDef edge fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff;
     classDef app fill:#0f766e,stroke:#2dd4bf,stroke-width:2px,color:#fff;
+    classDef cache fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#fff;
     classDef data fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#fff;
     classDef msg fill:#701a75,stroke:#f472b6,stroke-width:2px,color:#fff;
 
     class Client,Kong edge;
     class Django app;
+    class Cache cache;
     class CNPG,RustFS data;
     class Kafka msg;
 ```
@@ -103,7 +107,12 @@ graph TB
   - Generates and echoes `X-Request-ID` correlation identifiers across all API boundaries.
   - Exposes Kubernetes liveness (`/healthz/`), readiness (`/readyz/`), and Prometheus telemetry (`/metrics/`).
 
-### 2.5 Edge Routing Layer: Kong API Gateway
+### 2.5 API Cache: Valkey
+* **Purpose:** Shared Redis-protocol cache for Django replicas, bounded by `allkeys-lru` and a 256MiB maximum.
+* **Cached responses:** Article list and detail GET endpoints use a 60-second default TTL. Successful article creates, updates, deletes, and publishes invalidate cached responses.
+* **Isolation:** NetworkPolicy permits cache traffic only from Django pods. Cache data is ephemeral and can be rebuilt from PostgreSQL; user API responses are deliberately not cached.
+
+### 2.6 Edge Routing Layer: Kong API Gateway
 * **Ingress Management:** Ingress controller directing inbound external traffic matching `api.enterprise.local` to `django-service` on port 80.
 * **Gateway Plugins:**
   - **Rate Limiting:** Prevents DDoS and resource exhaustion (120 req/min).
@@ -120,4 +129,5 @@ graph TB
 | **Kong Ingress** | **Django Service** | TCP (Port 80 → 8000) | Layer 4/7 | Internal cluster upstream proxying via Kubernetes CoreDNS resolution (`ClusterIP`). | `app-tier-network-policy` allows port 8000 from ingress namespaces |
 | **Django Service** | **CNPG Postgres** | TCP (Port 5432) | Layer 4 | ORM-backed relational transactions, connection pooling, and ACID persistence over Longhorn volumes. | `postgres-network-policy` restricts port 5432 strictly to `app.kubernetes.io/name: django-api` |
 | **Django Service** | **Kafka Broker** | TCP (Port 9092) | Layer 4 | Asynchronous publishing of user/article event streams. | `kafka-network-policy` restricts port 9092 strictly to `app.kubernetes.io/name: django-api` |
+| **Django Service** | **Valkey Cache**  | TCP (Port 6379) | Layer 4 | Shared cache for article list and detail GET responses. | `api-cache-network-policy` permits port 6379 only from Django pods |
 | **CNPG Operator** | **RustFS S3** | HTTP REST (Port 9000) | Layer 7 | Automated Write-Ahead Log (WAL) archiving and scheduled base backups. | `rustfs-network-policy` restricts port 9000 to CNPG cluster pods |

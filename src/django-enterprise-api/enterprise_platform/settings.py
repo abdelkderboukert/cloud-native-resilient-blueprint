@@ -139,6 +139,30 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+API_CACHE_TTL = int(os.getenv("API_CACHE_TTL", "60"))
+API_CACHE_ENABLED = os.getenv("API_CACHE_ENABLED", "True").lower() in ("true", "1", "yes")
+REDIS_URL = os.getenv("REDIS_URL")
+CACHES = {
+    "default": {
+        "BACKEND": (
+            "django_redis.cache.RedisCache"
+            if REDIS_URL
+            else "django.core.cache.backends.locmem.LocMemCache"
+        ),
+        "LOCATION": REDIS_URL or "enterprise-platform-api",
+        "TIMEOUT": API_CACHE_TTL,
+        "OPTIONS": (
+            {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,
+                "DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS": True,
+            }
+            if REDIS_URL
+            else {}
+        ),
+    }
+}
+
 # Django REST Framework Configuration
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [

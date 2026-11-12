@@ -1,0 +1,79 @@
+{{- if .Values.appTier.cache.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appTier.cache.name }}
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+        {{- include "enterprise-platform.labels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: valkey
+        image: "{{ .Values.appTier.cache.image.repository }}:{{ .Values.appTier.cache.image.tag }}"
+        imagePullPolicy: {{ .Values.appTier.cache.image.pullPolicy }}
+        command: ["valkey-server"]
+        args:
+        - "--save"
+        - ""
+        - "--appendonly"
+        - "no"
+        - "--maxmemory"
+        - {{ .Values.appTier.cache.maxMemory | quote }}
+        - "--maxmemory-policy"
+        - "allkeys-lru"
+        ports:
+        - name: redis
+          containerPort: {{ .Values.appTier.cache.port }}
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.appTier.cache.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        readinessProbe:
+          tcpSocket:
+            port: redis
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: redis
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.appTier.cache.name }}
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: redis
+    port: {{ .Values.appTier.cache.port }}
+    targetPort: redis
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+{{- end }}

@@ -1,4 +1,5 @@
 import json
+from django.core.cache import cache
 from django.test import TestCase, Client
 from apps.articles.models import Article
 from apps.core.kafka_producer import kafka_producer
@@ -7,8 +8,51 @@ from apps.core.kafka_producer import kafka_producer
 class ArticleAPITests(TestCase):
     def setUp(self):
         self.client = Client()
+        cache.clear()
         kafka_producer._test_mode = True
         kafka_producer.clear_test_events()
+
+    def test_article_reads_are_cached_and_writes_invalidate_cache(self):
+        article = Article.objects.create(
+            title="Cached Article",
+            content="Original content",
+            author="engineer",
+            status=Article.STATUS_DRAFT,
+        )
+
+        response = self.client.get("/api/v1/articles/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"][0]["title"], "Cached Article")
+
+        with self.assertNumQueries(0):
+            cached_response = self.client.get("/api/v1/articles/")
+        self.assertEqual(cached_response.json()["results"][0]["title"], "Cached Article")
+
+        response = self.client.patch(
+            f"/api/v1/articles/{article.id}/",
+            data=json.dumps({"title": "Updated Article"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get("/api/v1/articles/")
+        self.assertEqual(response.json()["results"][0]["title"], "Updated Article")
+
+        detail_url = f"/api/v1/articles/{article.id}/"
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.json()["title"], "Updated Article")
+        with self.assertNumQueries(0):
+            cached_detail = self.client.get(detail_url)
+        self.assertEqual(cached_detail.json()["title"], "Updated Article")
+
+        response = self.client.patch(
+            detail_url,
+            data=json.dumps({"content": "Updated content"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.json()["content"], "Updated content")
 
     def test_create_article_publishes_event(self):
         payload = {

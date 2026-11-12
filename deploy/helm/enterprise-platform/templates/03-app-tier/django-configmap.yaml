@@ -14,6 +14,11 @@ data:
   KAFKA_BOOTSTRAP_SERVERS: "kafka-broker-0.kafka-headless.{{ .Values.namespaces.messagingTier }}.svc.cluster.local:9092"
   KAFKA_USER_EVENTS_TOPIC: {{ .Values.messagingTier.kafka.topics.userEvents | quote }}
   KAFKA_ARTICLE_EVENTS_TOPIC: {{ .Values.messagingTier.kafka.topics.articleEvents | quote }}
+  API_CACHE_ENABLED: {{ .Values.appTier.cache.enabled | quote }}
+  API_CACHE_TTL: {{ .Values.appTier.django.cache.ttlSeconds | quote }}
+  {{- if .Values.appTier.cache.enabled }}
+  REDIS_URL: "redis://{{ .Values.appTier.cache.name }}:{{ .Values.appTier.cache.port }}/0"
+  {{- end }}
   CORS_ALLOW_ALL_ORIGINS: "False"
   LOG_LEVEL: {{ .Values.appTier.django.logLevel | quote }}
 {{- end }}

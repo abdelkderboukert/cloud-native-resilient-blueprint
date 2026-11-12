@@ -134,6 +134,27 @@ services:
   # -------------------------------------------------------------
   # 4. Application Layer: Django REST Framework API
   # -------------------------------------------------------------
+  api-cache:
+    image: valkey/valkey:8.1.1-alpine
+    container_name: eemp-api-cache
+    command:
+      - valkey-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    networks:
+      - app-tier
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   django-api:
     build:
       context: ./src/django-enterprise-api
@@ -150,11 +171,16 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
       KAFKA_USER_EVENTS_TOPIC: "user.lifecycle.events"
       KAFKA_ARTICLE_EVENTS_TOPIC: "article.lifecycle.events"
+      REDIS_URL: "redis://api-cache:6379/0"
+      API_CACHE_ENABLED: "True"
+      API_CACHE_TTL: "60"
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_started
+      api-cache:
+        condition: service_healthy
     networks:
       - app-tier
       - edge-tier

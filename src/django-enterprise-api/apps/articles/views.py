@@ -3,12 +3,24 @@ Article API ViewSets with Asynchronous Event Streaming
 """
 
 from datetime import datetime, timezone
+from django.conf import settings
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from apps.articles.models import Article
 from apps.articles.serializers import ArticleSerializer
 from apps.core.kafka_producer import kafka_producer
+
+
+def _cache_article_read(view_method):
+    if not settings.API_CACHE_ENABLED or settings.API_CACHE_TTL <= 0:
+        return view_method
+    return method_decorator(
+        cache_page(settings.API_CACHE_TTL, key_prefix="articles")
+    )(view_method)
 
 
 class ArticleViewSet(viewsets.ModelViewSet):
@@ -23,8 +35,17 @@ class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
 
+    @_cache_article_read
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @_cache_article_read
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         article = serializer.save()
+        cache.clear()
         # Asynchronously broadcast article.created event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.created",
@@ -33,6 +54,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         article = serializer.save()
+        cache.clear()
         # Asynchronously broadcast article.updated event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.updated",
@@ -43,6 +65,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
         article_id = str(instance.id)
         article_data = {"id": article_id, "title": instance.title, "status": "deleted"}
         instance.delete()
+        cache.clear()
         # Asynchronously broadcast article.deleted event to Kafka
         kafka_producer.publish_article_event(
             event_type="article.deleted",
@@ -56,6 +79,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
         article.status = Article.STATUS_PUBLISHED
         article.published_at = datetime.now(timezone.utc)
         article.save()
+        cache.clear()
 
         serialized = ArticleSerializer(article).data
         # Asynchronously broadcast article.published event to Kafka

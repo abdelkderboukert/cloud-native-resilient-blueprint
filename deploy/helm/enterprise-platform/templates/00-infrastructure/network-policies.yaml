@@ -52,6 +52,51 @@ spec:
     ports:
     - protocol: TCP
       port: 9092
+  {{- if .Values.appTier.cache.enabled }}
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.appTier.cache.port }}
+  {{- end }}
+---
+{{- if .Values.appTier.cache.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-cache-network-policy
+  namespace: {{ .Values.namespaces.appTier }}
+  labels:
+    {{- include "enterprise-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.appTier.cache.name }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ .Values.appTier.django.name }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.appTier.cache.port }}
+  egress:
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
