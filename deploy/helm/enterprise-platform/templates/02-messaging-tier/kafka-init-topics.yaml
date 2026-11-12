@@ -18,6 +18,7 @@ spec:
         {{- include "enterprise-platform.labels" . | nindent 8 }}
     spec:
       restartPolicy: OnFailure
+      automountServiceAccountToken: false
       containers:
       - name: topic-creator
         image: "{{ .Values.messagingTier.kafka.image.repository }}:{{ .Values.messagingTier.kafka.image.tag }}"

@@ -34,5 +34,5 @@ spec:
     - "*"
     includeClusterResources: true
     snapshotVolumes: false
-    defaultVolumesToFsBackup: true
+    defaultVolumesToFsBackup: {{ .Values.clusterBackup.velero.defaultVolumesToFsBackup }}
 {{- end }}

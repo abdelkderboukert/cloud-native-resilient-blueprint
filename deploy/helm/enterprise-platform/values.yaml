@@ -189,6 +189,7 @@ clusterBackup:
     region: "us-east-1"
     endpoint: "http://rustfs-service.data-tier.svc.cluster.local:9000"
     credentialsSecretName: "cloud-credentials"
+    defaultVolumesToFsBackup: true
 
 # 1. Object Storage & Stateful Database Tier
 dataTier:

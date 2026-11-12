@@ -17,6 +17,16 @@ keeps the self-managed etcd encryption procedure with the Helm deployment.
 - RustFS is currently hosted inside this same cluster. For disaster recovery
   against cluster loss, replicate the `cluster-backups` bucket to storage
   outside the cluster or configure an external S3-compatible destination.
+- The scheduled backup includes Kubernetes Secrets. etcd encryption does not
+  encrypt Velero's exported backup objects; protect and encrypt the object-store
+  bucket and its access credentials separately.
+- File-system volume backup is enabled by default and requires Velero's
+  privileged node-agent. Velero documents file-system backup as beta and notes
+  that it reads live filesystems, so it is not application-consistent. Keep
+  CloudNativePG's native backup/WAL archiving for PostgreSQL, and design
+  application-consistent backup or snapshot procedures for other stateful
+  workloads. Set `clusterBackup.velero.defaultVolumesToFsBackup: false` if you
+  do not want Velero to back up pod volumes.
 
 The DevOps auditor receives get/list/watch access to operational resources but
 not Secrets or mutation subresources. Use short-lived tokens:

@@ -133,6 +133,10 @@ Before syncing the chart:
    users to a shared service-account token.
 
 The Velero schedule backs up namespaced and cluster-scoped Kubernetes
-resources daily and uses Velero file-system backup for volumes. RustFS is
+resources daily and uses Velero file-system backup for volumes. File-system
+backup requires a privileged node-agent and is not application-consistent;
+CloudNativePG's native backup/WAL archiving remains the PostgreSQL recovery
+path. Backups include Kubernetes Secrets, so protect and encrypt the bucket
+separately—etcd encryption does not encrypt exported backup objects. RustFS is
 currently in-cluster, so replicate the backup bucket off-cluster for cluster
 disaster recovery.

@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/name: kafka
         {{- include "enterprise-platform.labels" . | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: kafka
         image: "{{ .Values.messagingTier.kafka.image.repository }}:{{ .Values.messagingTier.kafka.image.tag }}"
